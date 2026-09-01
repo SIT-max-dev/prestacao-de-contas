@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prestação de Contas (Nuvem)</title>
+  <!-- Biblioteca Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --primary: #1e293b;
+      --primary-light: #334155;
+      --accent: #16a34a;
+      --accent-hover: #15803d;
+      --danger: #dc2626;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --text: #0f172a;
+      --border: #e2e8f0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .login-overlay, .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    .login-card {
+      background: var(--card);
+      padding: 2.5rem;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+
+    .login-logo {
+      max-height: 80px;
+      margin-bottom: 1rem;
+      object-fit: contain;
+    }
+
+    header {
+      background-color: var(--primary);
+      color: white;
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .brand-container {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .header-logo {
+      height: 45px;
+      width: 45px;
+      object-fit: contain;
+      background: white;
+      border-radius: 8px;
+      padding: 2px;
+    }
+
+    .brand-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .user-info {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .nav-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: #94a3b8;
+      padding: 0.5rem 0.85rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .nav-btn:hover { color: white; background-color: rgba(255, 255, 255, 0.05); }
+    .nav-btn.active { background-color: var(--accent); color: white; }
+
+    .container {
+      max-width: 1100px;
+      width: 100%;
+      margin: 1.5rem auto;
+      padding: 0 1rem;
+      flex: 1;
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .card {
+      background: var(--card);
+      padding: 1.25rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      transition: all 0.3s ease;
+    }
+
+    .card.negativo {
+      background-color: #fef2f2;
+      border-color: #fca5a5;
+    }
+
+    .card h3 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 0.5rem;
+    }
+
+    .card .value { font-size: 1.5rem; font-weight: 700; }
+    .val-verba { color: var(--primary); }
+    .val-gasto { color: var(--danger); }
+    .val-saldo { color: var(--accent); }
+    .val-saldo.negativo { color: var(--danger); }
+
+    .section-card {
+      background: var(--card);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .section-card-main {
+      background: #ffffff;
+      border: 2px solid var(--accent);
+      border-radius: 12px;
+      padding: 1.75rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 4px 12px rgba(22, 163, 74, 0.08);
+    }
+
+    .section-card-main h2 {
+      font-size: 1.25rem;
+      color: var(--accent-hover);
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #f0fdf4;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .section-card-compact {
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .section-card-compact h2 {
+      font-size: 0.95rem;
+      color: #475569;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      align-items: end;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .form-group label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #475569;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.9rem;
+      outline: none;
+    }
+
+    input:focus, select:focus { border-color: var(--primary); }
+
+    .checkbox-container {
+      grid-column: 1 / -1;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      cursor: pointer;
+    }
+
+    .checkbox-container input {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    .checkbox-container label {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #b45309;
+      cursor: pointer;
+    }
+
+    .box-emergencia-caixa {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      padding: 1rem;
+      border-radius: 6px;
+    }
+
+    .btn {
+      padding: 0.65rem 1.25rem;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: opacity 0.2s;
+    }
+
+    .btn:hover { opacity: 0.9; }
+    .btn-primary { background-color: var(--primary); color: white; }
+    .btn-success { background-color: var(--accent); color: white; }
+    .btn-danger { background-color: var(--danger); color: white; }
+    .btn-wsp { background-color: #25D366; color: white; }
+
+    .table-responsive { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.88rem;
+    }
+
+    th {
+      background-color: #f8fafc;
+      color: #475569;
+      font-weight: 600;
+      padding: 0.75rem 1rem;
+      border-bottom: 2px solid var(--border);
+    }
+
+    td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tag {
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background-color: #e2e8f0;
+      color: #334155;
+    }
+
+    .tag-log {
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: white;
+    }
+
+    .tag-log-add { background-color: #16a34a; }
+    .tag-log-del { background-color: #dc2626; }
+    .tag-log-cfg { background-color: #2563eb; }
+    .tag-log-auth { background-color: #d97706; }
+
+    .user-badge {
+      font-size: 0.75rem;
+      color: #64748b;
+      font-style: italic;
+    }
+
+    .img-thumb {
+      width: 40px;
+      height: 40px;
+      object-fit: cover;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+    }
+
+    .item-tag-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .item-chip {
+      background-color: #f1f5f9;
+      border: 1px solid var(--border);
+      padding: 0.4rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .item-chip button {
+      background: none; border: none; color: var(--danger); font-weight: bold; cursor: pointer;
+    }
+
+    .color-picker-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .color-picker-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .color-picker-item input[type="color"] {
+      height: 40px;
+      padding: 2px;
+      cursor: pointer;
+    }
+
+    .status-cloud {
+      font-size: 0.75rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      background-color: #dcfce7;
+      color: #15803d;
+      font-weight: bold;
+    }
+
+    .print-resumo {
+      display: none;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      padding: 1rem;
+      border-radius: 6px;
+      margin-bottom: 1.5rem;
+    }
+
+    @media print {
+      body { background: white; color: black; }
+      header, nav, .login-overlay, .btn, form, #tab-config, #tab-categorias, #tab-logs, .col-acoes, .filter-box, .btn-admin-only, .section-card-compact {
+        display: none !important;
+      }
+      .container { max-width: 100%; margin: 0; padding: 0; }
+      .tab-content { display: block !important; }
+      .section-card, .section-card-main { border: none; box-shadow: none; padding: 0; }
+      table { border: 1px solid #000; }
+      th, td { border: 1px solid #000; padding: 6px; }
+      .print-header { display: block !important; margin-bottom: 15px; text-align: center; }
+      .print-resumo { display: block !important; }
+    }
+
+    .print-header { display: none; }
+
+    @media (max-width: 768px) {
+      header { flex-direction: column; gap: 1rem; align-items: flex-start; }
+      .brand-container { width: 100%; justify-content: space-between; }
+      .form-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div id="login-modal" class="login-overlay">
+    <div class="login-card">
+      <img id="login-img-logo" src="" class="login-logo" style="display:none;" alt="Logo">
+      <h2 id="login-title" style="margin-bottom: 1.5rem; color: var(--primary);">Acesso ao Sistema</h2>
+      <form id="form-login" style="display: flex; flex-direction: column; gap: 1rem;">
+        <div class="form-group" style="text-align: left;">
+          <label>Usuário</label>
+          <select id="login-usuario" required></select>
+        </div>
+        <div class="form-group" style="text-align: left;">
+          <label>Senha</label>
+          <input type="password" id="login-senha" placeholder="Digite sua senha" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="margin-top: 0.5rem;">Entrar no Sistema</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE IMAGEM/COMPROVANTE -->
+  <div id="modal-img" class="modal-overlay" style="display:none;" onclick="fecharModalImagem()">
+    <div style="position:relative; max-width:90%; max-height:90%;">
+      <img id="img-ampliada" src="" style="max-width:100%; max-height:80vh; border-radius:8px; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+    </div>
+  </div>
+
+  <!-- CABEÇALHO -->
+  <header>
+    <div class="brand-container">
+      <img id="header-logo" src="" class="header-logo" style="display:none;" alt="Logo">
+      <div>
+        <div class="brand-title" id="app-title">Prestação de Contas</div>
+        <span class="status-cloud">☁️ Nuvem Ativa (Supabase)</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <nav>
+        <button class="nav-btn active" onclick="switchTab('tab-lancamentos')">📊 Lançamentos</button>
+        <button class="nav-btn" onclick="switchTab('tab-categorias')">🏷️ Categorias</button>
+        <button class="nav-btn" id="btn-tab-logs" onclick="switchTab('tab-logs')">📜 Logs</button>
+        <button class="nav-btn" id="btn-tab-config" onclick="switchTab('tab-config')">⚙️ Configurações</button>
+      </nav>
+      <div class="user-info">
+        <span>👤 <strong id="lbl-usuario-ativo">-</strong> <span id="lbl-perfil-ativo" style="font-size:0.75rem; opacity:0.8;"></span></span>
+        <button onclick="logout()" class="btn btn-danger" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;">Sair</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    
+    <!-- CABEÇALHO EXCLUSIVO DA IMPRESSÃO PARA A MATRIZ -->
+    <div class="print-header">
+      <h1 id="print-title">Prestação de Contas - Relatório Semanal</h1>
+      <p id="print-date"></p>
+    </div>
+
+    <!-- RESUMO IMPRESSO DE TROCO -->
+    <div class="print-resumo">
+      <div style="display:flex; justify-content:space-between; font-weight:bold;">
+        <span>Verba do Malote Recebida: <span id="prt-verba">R$ 0,00</span></span>
+        <span>Total de Despesas: <span id="prt-gastos">R$ 0,00</span></span>
+        <span style="color:#15803d;"><span id="prt-lbl-troco">Troco a Devolver:</span> <span id="prt-troco">R$ 0,00</span></span>
+      </div>
+    </div>
+
+    <!-- ABA 1: LANÇAMENTOS -->
+    <div id="tab-lancamentos" class="tab-content active">
+      
+      <!-- DASHBOARD CARDS -->
+      <div class="dashboard-grid">
+        <div class="card">
+          <h3>Verba Recebida (Malote)</h3>
+          <div class="value val-verba" style="color:#d97706;" id="disp-caixa">R$ 0,00</div>
+        </div>
+        <div class="card">
+          <h3>Total Gastos</h3>
+          <div class="value val-gasto" id="disp-gastos">R$ 0,00</div>
+        </div>
+        <div class="card" id="card-saldo">
+          <h3 id="lbl-card-saldo">Troco a Devolver</h3>
+          <div class="value val-saldo" id="disp-saldo">R$ 0,00</div>
+        </div>
+      </div>
+
+      <!-- NOVO LANÇAMENTO DE GASTO (DESTAQUE PRINCIPAL DA TELA) -->
+      <div class="section-card-main">
+        <h2>💸 Registrar Novo Pagamento / Gasto</h2>
+        <form id="form-gasto" class="form-grid">
+          <div class="form-group">
+            <label for="data">Data e Hora</label>
+            <input type="datetime-local" id="data" required>
+          </div>
+          <div class="form-group">
+            <label for="categoria">Categoria</label>
+            <select id="categoria" required></select>
+          </div>
+          <div class="form-group">
+            <label for="descricao">Nome / Descrição</label>
+            <input type="text" id="descricao" placeholder="Ex: João - Garçom" required>
+          </div>
+          <div class="form-group">
+            <label for="forma-pagto">Forma de Pagto</label>
+            <select id="forma-pagto" required></select>
+          </div>
+          <div class="form-group">
+            <label for="valor">Valor (R$)</label>
+            <input type="number" id="valor" step="0.01" min="0.01" placeholder="0,00" style="font-weight: bold; font-size: 1rem; color: var(--danger);" required>
+          </div>
+          <div class="form-group">
+            <label for="comprovante">Foto Comprovante (Opcional)</label>
+            <input type="file" id="comprovante" accept="image/*">
+          </div>
+
+          <!-- CHECKBOX OPCIONAL DE EMERGÊNCIA (USAR CAIXA LOCAL) -->
+          <div class="checkbox-container" onclick="toggleEmergenciaCaixa()">
+            <input type="checkbox" id="chk-usar-caixa" onchange="toggleEmergenciaCaixa()">
+            <label for="chk-usar-caixa">⚠️ Emergência: Utilizei dinheiro do caixa local (apenas se faltou verba do malote)</label>
+          </div>
+
+          <!-- CAMPOS DE CAIXA QUE SÓ APARECEM SE MARCADO -->
+          <div id="box-emergencia-campos" class="box-emergencia-caixa" style="display: none;">
+            <div class="form-group">
+              <label for="gasto-data-caixa">Data do Caixa Retirado</label>
+              <input type="date" id="gasto-data-caixa">
+            </div>
+            <div class="form-group">
+              <label for="gasto-operador-caixa">Operador do Caixa</label>
+              <select id="gasto-operador-caixa"></select>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-success" style="padding: 0.75rem 1.5rem; font-size: 1rem; grid-column: 1 / -1; justify-self: start;">Lançar Gasto</button>
+        </form>
+      </div>
+
+      <!-- APORTE / ENTRADA DE VERBA (REDUZIDO E COMPACTO) -->
+      <div class="section-card-compact btn-admin-only">
+        <h2>💵 Adicionar Verba do Malote Recebido (Entrada)</h2>
+        <form id="form-aporte" class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem;">
+          <div class="form-group">
+            <label for="aporte-data-caixa">Data</label>
+            <input type="date" id="aporte-data-caixa" style="padding:0.4rem 0.5rem;" required>
+          </div>
+          <div class="form-group">
+            <label for="aporte-operador-caixa">Responsável</label>
+            <select id="aporte-operador-caixa" style="padding:0.4rem 0.5rem;" required></select>
+          </div>
+          <div class="form-group">
+            <label for="aporte-valor">Valor Recebido (R$)</label>
+            <input type="number" id="aporte-valor" step="0.01" min="0.01" placeholder="0,00" style="padding:0.4rem 0.5rem;" required>
+          </div>
+          <div class="form-group">
+            <label for="aporte-obs">Identificação / Obs</label>
+            <input type="text" id="aporte-obs" placeholder="Ex: Malote 01" style="padding:0.4rem 0.5rem;">
+          </div>
+          <button type="submit" class="btn btn-primary" style="padding: 0.45rem 1rem; font-size: 0.85rem;">+ Entrada</button>
+        </form>
+      </div>
+
+      <!-- FILTROS -->
+      <div class="section-card filter-box">
+        <h2>🔍 Filtros de Busca</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Data Inicial</label>
+            <input type="date" id="flt-data-inicio" onchange="atualizarPainel()">
+          </div>
+          <div class="form-group">
+            <label>Data Final</label>
+            <input type="date" id="flt-data-fim" onchange="atualizarPainel()">
+          </div>
+          <div class="form-group">
+            <label>Operador de Caixa</label>
+            <select id="flt-operador" onchange="atualizarPainel()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Forma de Pagamento</label>
+            <select id="flt-forma-pagto" onchange="atualizarPainel()">
+              <option value="">Todas</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Categoria</label>
+            <select id="flt-categoria" onchange="atualizarPainel()">
+              <option value="">Todas</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="limparFiltros()">Limpar Filtros</button>
+        </div>
+      </div>
+
+      <!-- TABELA DE HISTÓRICO -->
+      <div class="section-card">
+        <h2>Histórico de Lançamentos</h2>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Data e Hora</th>
+                <th>Comprovante</th>
+                <th>Categoria</th>
+                <th>Fonte / Origem</th>
+                <th>Descrição / Profissional</th>
+                <th>Pagamento</th>
+                <th>Lançado Por</th>
+                <th>Valor</th>
+                <th class="col-acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-gastos"></tbody>
+          </table>
+        </div>
+
+        <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-top:1rem;">
+          <button class="btn btn-wsp" onclick="enviarResumoWhatsApp()">📱 Enviar Resumo no WhatsApp</button>
+          <button class="btn btn-primary" onclick="exportarCSV()">📥 Baixar Excel (CSV)</button>
+          <button class="btn btn-success" onclick="exportarPDF()">📄 Imprimir Relatório para Matriz</button>
+          <button class="btn btn-danger btn-admin-only" onclick="limparSemanaComSenha()">🔄 Zerar Lançamentos da Semana</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ABA 2: CATEGORIAS -->
+    <div id="tab-categorias" class="tab-content">
+      <div class="section-card">
+        <h2>🏷️ Gerenciamento de Categorias de Gastos</h2>
+        <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1rem;">Crie e organize os tipos de gastos para classificar melhor suas despesas.</p>
+
+        <div style="display:flex; gap:0.5rem; margin-bottom:1.5rem;" class="btn-admin-only">
+          <input type="text" id="nova-categoria-aba" placeholder="Ex: Freelance - Sushiman" style="max-width: 300px;">
+          <button class="btn btn-success" onclick="adicionarCategoriaAba()">+ Criar Categoria</button>
+        </div>
+
+        <h3>Categorias Ativas:</h3>
+        <div class="item-tag-list" id="lista-categorias-aba" style="margin-top: 0.5rem;"></div>
+      </div>
+    </div>
+
+    <!-- ABA 3: LOGS DO SISTEMA (EXCLUSIVO GERENTE E DEV) -->
+    <div id="tab-logs" class="tab-content">
+      <div class="section-card">
+        <h2>📜 Registro de Atividades e Logs do Sistema</h2>
+        <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1rem;">Histórico completo de alterações, exclusões e adições realizadas no sistema (Visível apenas para Gerente e Dev).</p>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Data e Hora</th>
+                <th>Tipo</th>
+                <th>Usuário</th>
+                <th>Detalhes da Ação</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-logs"></tbody>
+          </table>
+        </div>
+
+        <div class="area-dev-only" style="margin-top: 1rem;">
+          <button class="btn btn-danger" onclick="limparLogsComSenha()">🗑️ Limpar Todos os Logs (Apenas Dev)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ABA 4: CONFIGURAÇÕES -->
+    <div id="tab-config" class="tab-content">
+      
+      <!-- GERENCIAMENTO DE BACKUP MANUAL -->
+      <div class="section-card">
+        <h2>💾 Backup de Segurança em Arquivo (.json)</h2>
+        <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1rem;">Além da sincronização automática em nuvem, você pode baixar uma cópia física dos dados ou restaurar um backup prévio.</p>
+        
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+          <button class="btn btn-primary" onclick="exportarBackupJSON()">📤 Baixar Arquivo de Backup (.json)</button>
+          <label class="btn btn-success" style="cursor: pointer;">
+            📥 Importar Arquivo de Backup (.json)
+            <input type="file" id="input-import-backup" accept=".json" style="display: none;" onchange="importarBackupJSON(event)">
+          </label>
+        </div>
+      </div>
+
+      <!-- APENAS VISÍVEL PARA DESENVOLVEDOR -->
+      <div class="section-card area-dev-only">
+        <h2>🎨 Identidade Visual & Logo (Apenas Desenvolvedor)</h2>
+        <div class="form-grid" style="margin-bottom: 1rem;">
+          <div class="form-group">
+            <label for="cfg-logo-file">Logo da Unidade (Imagem)</label>
+            <input type="file" id="cfg-logo-file" accept="image/*" onchange="uploadLogo(event)">
+          </div>
+          <div class="form-group" id="logo-preview-box" style="display:none;">
+            <label>Pré-visualização</label>
+            <img id="img-preview" style="max-height: 50px; object-fit: contain;">
+          </div>
+        </div>
+
+        <div class="color-picker-grid">
+          <div class="color-picker-item">
+            <label>Cor Principal</label>
+            <input type="color" id="clr-primary" value="#1e293b">
+          </div>
+          <div class="color-picker-item">
+            <label>Cor de Destaque / Botões</label>
+            <input type="color" id="clr-accent" value="#16a34a">
+          </div>
+          <div class="color-picker-item">
+            <label>Cor de Fundo</label>
+            <input type="color" id="clr-bg" value="#f1f5f9">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="salvarTemaVisual()">Salvar Visual</button>
+      </div>
+
+      <!-- OPERADORES DE CAIXA -->
+      <div class="section-card">
+        <h2>🏪 Gerenciar Operadores de Caixa</h2>
+        <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1rem;">Cadastre os operadores para identificar de quem foi retirado o dinheiro do caixa.</p>
+        <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+          <input type="text" id="novo-operador-caixa" placeholder="Ex: Maria (Caixa 1 / Tarde)" style="max-width: 300px;">
+          <button class="btn btn-success" onclick="adicionarOperadorCaixa()">+ Adicionar Operador</button>
+        </div>
+        <div class="item-tag-list" id="lista-operadores-caixa"></div>
+      </div>
+
+      <div class="section-card">
+        <h2>👤 Cadastrar Novo Usuário do Sistema</h2>
+        <form id="form-novo-usuario" class="form-grid">
+          <div class="form-group">
+            <label>Nome do Usuário</label>
+            <input type="text" id="usr-nome" placeholder="Ex: Operador Tarde" required>
+          </div>
+          <div class="form-group">
+            <label>Perfil / Permissão</label>
+            <select id="usr-perfil" required>
+              <option value="lancador">Lançador (Apenas Lançar Despesas)</option>
+              <option value="gerente">Gerente (Gestão + Sem Alterações Visuais)</option>
+              <option value="dev">Desenvolvedor (Acesso Total 100%)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Senha de Acesso</label>
+            <input type="password" id="usr-senha" placeholder="Crie uma senha" required>
+          </div>
+          <button type="submit" class="btn btn-success">+ Cadastrar Usuário</button>
+        </form>
+
+        <h3 style="font-size:0.9rem; color:#475569; margin: 1.5rem 0 0.5rem 0;">Usuários do Sistema Cadastrados:</h3>
+        <div class="item-tag-list" id="lista-usuarios"></div>
+      </div>
+
+      <div class="section-card">
+        <h2>🔒 Senha de Segurança para Exclusões</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="cfg-senha-exclusao">Nova Senha de Exclusão</label>
+            <input type="password" id="cfg-senha-exclusao" placeholder="Digite a nova senha">
+          </div>
+          <button class="btn btn-primary" onclick="salvarSenhaExclusao()">Definir Senha</button>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <h2>🏢 Geral</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="cfg-nome-restaurante">Nome da Unidade / Restaurante</label>
+            <input type="text" id="cfg-nome-restaurante" placeholder="Ex: Prestação de Contas - Unidade 1">
+          </div>
+          <button class="btn btn-primary" onclick="salvarConfigGeral()">Salvar Geral</button>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <h2>💳 Gerenciar Formas de Pagamento</h2>
+        <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+          <input type="text" id="nova-forma" placeholder="Ex: Cartão da Casa" style="max-width: 300px;">
+          <button class="btn btn-success" onclick="adicionarFormaPagto()">+ Adicionar</button>
+        </div>
+        <div class="item-tag-list" id="lista-formas"></div>
+      </div>
+
+      <!-- APENAS VISÍVEL PARA DESENVOLVEDOR -->
+      <div class="section-card area-dev-only" style="border-color: #fca5a5;">
+        <h2 style="color: var(--danger);">⚠️ Zona de Perigo (Apenas Desenvolvedor)</h2>
+        <button class="btn btn-danger" onclick="resetarTudoComSenha()">Resetar Todo o Sistema</button>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    // CONEXÃO SUPABASE
+    const SUPABASE_URL = "https://zdzkxgqtsjqttytjykhl.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_JFgEiQmEj-_Qoh7GC5rMsA_9zwZsfmb";
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const estadoPadrao = {
+      nomeRestaurante: "Prestação de Contas",
+      senhaExclusao: "1234",
+      logoBase64: "",
+      tema: { primary: "#1e293b", accent: "#16a34a", bg: "#f1f5f9" },
+      usuarios: [
+        { nome: "Desenvolvedor", senha: "dev", perfil: "dev" },
+        { nome: "Gerente", senha: "123", perfil: "gerente" },
+        { nome: "Operador", senha: "123", perfil: "lancador" }
+      ],
+      operadoresCaixa: ["Caixa 1 - Manhã", "Caixa 2 - Tarde/Noite"],
+      categorias: [
+        "Freelance - Garçom", "Freelance - Cozinha", "Freelance - Limpeza",
+        "Compras de Urgência", "Manutenção", "Outros Gastos"
+      ],
+      formasPagto: ["PIX", "Dinheiro em Espécie", "Cartão de Débito", "Transferência"],
+      aportes: [],
+      lancamentos: [],
+      logs: []
+    };
+
+    let appData = estadoPadrao;
+    let usuarioLogado = null;
+
+    async function carregarDadosNuvem() {
+      try {
+        const { data, error } = await supabaseClient
+          .from('dados_restaurante')
+          .select('conteudo')
+          .eq('id', 1)
+          .single();
+
+        if (error && error.code !== 'PGRST116') console.error("Erro ao carregar dados:", error);
+
+        if (data && data.conteudo) {
+          appData = data.conteudo;
+          if (!appData.logs) appData.logs = [];
+        } else {
+          await salvarDados();
+        }
+      } catch (err) {
+        console.error("Erro de conexão:", err);
+      }
+      initApp();
+    }
+
+    async function salvarDados() {
+      try {
+        const { error } = await supabaseClient
+          .from('dados_restaurante')
+          .upsert({ id: 1, conteudo: appData, updated_at: new Date() });
+
+        if (error) console.error("Erro ao salvar no Supabase:", error);
+      } catch (err) {
+        console.error("Erro na sincronização:", err);
+      }
+      atualizarPainel();
+    }
+
+    function registrarLog(tipo, detalhe) {
+      if (!appData.logs) appData.logs = [];
+      const novoLog = {
+        dataHora: new Date().toISOString(),
+        tipo: tipo,
+        usuario: usuarioLogado ? usuarioLogado.nome : "Sistema",
+        detalhe: detalhe
+      };
+      appData.logs.unshift(novoLog);
+      if (appData.logs.length > 500) appData.logs.pop();
+    }
+
+    function toggleEmergenciaCaixa() {
+      const isChecked = document.getElementById('chk-usar-caixa').checked;
+      const box = document.getElementById('box-emergencia-campos');
+      const dtCaixa = document.getElementById('gasto-data-caixa');
+      const opCaixa = document.getElementById('gasto-operador-caixa');
+
+      if (isChecked) {
+        box.style.display = 'grid';
+        dtCaixa.required = true;
+        opCaixa.required = true;
+      } else {
+        box.style.display = 'none';
+        dtCaixa.required = false;
+        opCaixa.required = false;
+        dtCaixa.value = '';
+      }
+    }
+
+    function switchTab(tabId) {
+      if ((tabId === 'tab-config' || tabId === 'tab-logs') && usuarioLogado && usuarioLogado.perfil === 'lancador') {
+        alert('Acesso negado: Perfil sem permissão para acessar esta página.');
+        return;
+      }
+
+      document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+
+      document.getElementById(tabId).classList.add('active');
+      if (event && event.target) event.target.classList.add('active');
+    }
+
+    function aplicarTema() {
+      if (!appData.tema) return;
+      document.documentElement.style.setProperty('--primary', appData.tema.primary);
+      document.documentElement.style.setProperty('--accent', appData.tema.accent);
+      document.documentElement.style.setProperty('--bg', appData.tema.bg);
+
+      document.getElementById('clr-primary').value = appData.tema.primary;
+      document.getElementById('clr-accent').value = appData.tema.accent;
+      document.getElementById('clr-bg').value = appData.tema.bg;
+    }
+
+    function aplicarLogo() {
+      const headerLogo = document.getElementById('header-logo');
+      const loginLogo = document.getElementById('login-img-logo');
+      const imgPreview = document.getElementById('img-preview');
+
+      if (appData.logoBase64) {
+        headerLogo.src = appData.logoBase64;
+        headerLogo.style.display = 'block';
+
+        loginLogo.src = appData.logoBase64;
+        loginLogo.style.display = 'inline-block';
+
+        imgPreview.src = appData.logoBase64;
+        document.getElementById('logo-preview-box').style.display = 'block';
+      } else {
+        headerLogo.style.display = 'none';
+        loginLogo.style.display = 'none';
+        document.getElementById('logo-preview-box').style.display = 'none';
+      }
+    }
+
+    function initApp() {
+      if (!appData.operadoresCaixa) appData.operadoresCaixa = ["Caixa 1", "Caixa 2"];
+      if (!appData.logs) appData.logs = [];
+
+      aplicarTema();
+      aplicarLogo();
+
+      document.getElementById('app-title').innerText = appData.nomeRestaurante;
+      document.getElementById('login-title').innerText = appData.nomeRestaurante;
+      document.getElementById('cfg-nome-restaurante').value = appData.nomeRestaurante;
+
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      document.getElementById('data').value = now.toISOString().slice(0, 16);
+
+      popularSelectUsuarios();
+      atualizarSelects();
+      renderizarListasConfig();
+      atualizarPainel();
+    }
+
+    function popularSelectUsuarios() {
+      const select = document.getElementById('login-usuario');
+      select.innerHTML = appData.usuarios.map(u => {
+        let tagPerfil = 'Lançador';
+        if (u.perfil === 'gerente') tagPerfil = 'Gerente';
+        if (u.perfil === 'dev') tagPerfil = 'Desenvolvedor';
+        return `<option value="${u.nome}">${u.nome} (${tagPerfil})</option>`;
+      }).join('');
+    }
+
+    document.getElementById('form-login').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nome = document.getElementById('login-usuario').value;
+      const senha = document.getElementById('login-senha').value;
+
+      const user = appData.usuarios.find(u => u.nome === nome && u.senha === senha);
+
+      if (user) {
+        usuarioLogado = user;
+        document.getElementById('lbl-usuario-ativo').innerText = user.nome;
+        
+        let labelPerfil = '[Lançador]';
+        if (user.perfil === 'gerente') labelPerfil = '[Gerente]';
+        if (user.perfil === 'dev') labelPerfil = '[Desenvolvedor]';
+        
+        document.getElementById('lbl-perfil-ativo').innerText = labelPerfil;
+        document.getElementById('login-modal').style.display = 'none';
+        document.getElementById('login-senha').value = '';
+
+        registrarLog('AUTH', `Login realizado por ${user.nome} (${user.perfil})`);
+        await salvarDados();
+
+        aplicarPermissoes();
+      } else {
+        alert('Senha incorreta!');
+      }
+    });
+
+    function aplicarPermissoes() {
+      const btnConfig = document.getElementById('btn-tab-config');
+      const btnLogs = document.getElementById('btn-tab-logs');
+      const btnsAdmin = document.querySelectorAll('.btn-admin-only');
+      const colAcoes = document.querySelectorAll('.col-acoes');
+      const devAreas = document.querySelectorAll('.area-dev-only');
+
+      if (usuarioLogado.perfil === 'dev') {
+        btnConfig.style.display = 'inline-block';
+        btnLogs.style.display = 'inline-block';
+        btnsAdmin.forEach(b => b.style.display = 'inline-block');
+        colAcoes.forEach(c => c.style.display = 'table-cell');
+        devAreas.forEach(d => d.style.display = 'block');
+      } else if (usuarioLogado.perfil === 'gerente') {
+        btnConfig.style.display = 'inline-block';
+        btnLogs.style.display = 'inline-block';
+        btnsAdmin.forEach(b => b.style.display = 'inline-block');
+        colAcoes.forEach(c => c.style.display = 'table-cell');
+        devAreas.forEach(d => d.style.display = 'none');
+      } else {
+        btnConfig.style.display = 'none';
+        btnLogs.style.display = 'none';
+        btnsAdmin.forEach(b => b.style.display = 'none');
+        colAcoes.forEach(c => c.style.display = 'none');
+        devAreas.forEach(d => d.style.display = 'none');
+        switchTab('tab-lancamentos');
+      }
+      renderizarTabela();
+      renderizarLogs();
+    }
+
+    async function logout() {
+      if (usuarioLogado) {
+        registrarLog('AUTH', `Logout do usuário ${usuarioLogado.nome}`);
+        await salvarDados();
+      }
+      usuarioLogado = null;
+      document.getElementById('login-modal').style.display = 'flex';
+    }
+
+    document.getElementById('form-aporte').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const dtCaixa = document.getElementById('aporte-data-caixa').value;
+      const opCaixa = document.getElementById('aporte-operador-caixa').value;
+      const val = parseFloat(document.getElementById('aporte-valor').value);
+
+      let dataCaixaFmt = '';
+      if (dtCaixa) {
+        const p = dtCaixa.split('-');
+        dataCaixaFmt = `${p[2]}/${p[1]}/${p[0]}`;
+      }
+
+      const novoAporte = {
+        dataHora: new Date().toISOString(),
+        origem: 'Malote',
+        dataCaixaRef: dataCaixaFmt,
+        operadorCaixa: opCaixa,
+        valor: val,
+        obs: document.getElementById('aporte-obs').value
+      };
+
+      if (!appData.aportes) appData.aportes = [];
+      appData.aportes.push(novoAporte);
+
+      registrarLog('ADD', `Verba do Malote adicionada: R$ ${val.toFixed(2)} (Resp: ${opCaixa})`);
+      await salvarDados();
+
+      document.getElementById('aporte-valor').value = '';
+      document.getElementById('aporte-obs').value = '';
+      document.getElementById('aporte-data-caixa').value = '';
+      alert('Verba do malote salva na nuvem!');
+    });
+
+    document.getElementById('form-gasto').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const usarCaixa = document.getElementById('chk-usar-caixa').checked;
+      const dtCaixa = document.getElementById('gasto-data-caixa').value;
+      const opCaixa = document.getElementById('gasto-operador-caixa').value;
+      const desc = document.getElementById('descricao').value;
+      const val = parseFloat(document.getElementById('valor').value);
+      const cat = document.getElementById('categoria').value;
+      const fileComprovante = document.getElementById('comprovante').files[0];
+
+      let dataCaixaFmt = '';
+      let operadorFinal = '';
+      let fonteOrigem = 'Malote';
+
+      if (usarCaixa) {
+        fonteOrigem = 'Caixa Local (Emergência)';
+        if (dtCaixa) {
+          const p = dtCaixa.split('-');
+          dataCaixaFmt = `${p[2]}/${p[1]}/${p[0]}`;
+        }
+        operadorFinal = opCaixa;
+      }
+
+      const processarGasto = async (imgBase64 = '') => {
+        const novoGasto = {
+          dataHora: document.getElementById('data').value,
+          categoria: cat,
+          fonteRecurso: fonteOrigem,
+          dataCaixaRef: dataCaixaFmt,
+          operadorCaixa: operadorFinal,
+          descricao: desc,
+          formaPagto: document.getElementById('forma-pagto').value,
+          valor: val,
+          comprovante: imgBase64,
+          usuario: usuarioLogado ? usuarioLogado.nome : "Anônimo"
+        };
+
+        appData.lancamentos.push(novoGasto);
+        registrarLog('ADD', `Gasto lançado: "${desc}" - R$ ${val.toFixed(2)} [Cat: ${cat}] (${fonteOrigem})`);
+        await salvarDados();
+
+        document.getElementById('descricao').value = '';
+        document.getElementById('valor').value = '';
+        document.getElementById('chk-usar-caixa').checked = false;
+        document.getElementById('comprovante').value = '';
+        toggleEmergenciaCaixa();
+        alert('Gasto salvo na nuvem com sucesso!');
+      };
+
+      if (fileComprovante) {
+        const reader = new FileReader();
+        reader.onload = async function(evt) {
+          await processarGasto(evt.target.result);
+        };
+        reader.readAsDataURL(fileComprovante);
+      } else {
+        await processarGasto('');
+      }
+    });
+
+    function atualizarPainel() {
+      const totalCaixaEntrada = (appData.aportes || []).reduce((acc, a) => acc + a.valor, 0);
+      const totalGasto = appData.lancamentos.reduce((acc, item) => acc + item.valor, 0);
+      const saldo = totalCaixaEntrada - totalGasto;
+
+      document.getElementById('disp-caixa').innerText = `R$ ${totalCaixaEntrada.toFixed(2)}`;
+      document.getElementById('disp-gastos').innerText = `R$ ${totalGasto.toFixed(2)}`;
+      
+      const cardSaldo = document.getElementById('card-saldo');
+      const dispSaldo = document.getElementById('disp-saldo');
+      const lblCardSaldo = document.getElementById('lbl-card-saldo');
+
+      document.getElementById('prt-verba').innerText = `R$ ${totalCaixaEntrada.toFixed(2)}`;
+      document.getElementById('prt-gastos').innerText = `R$ ${totalGasto.toFixed(2)}`;
+      document.getElementById('prt-troco').innerText = `R$ ${Math.abs(saldo).toFixed(2)}`;
+
+      if (saldo >= 0) {
+        lblCardSaldo.innerText = "Troco a Devolver";
+        document.getElementById('prt-lbl-troco').innerText = "Troco a Devolver para Matriz:";
+        cardSaldo.classList.remove('negativo');
+        dispSaldo.classList.remove('negativo');
+        dispSaldo.innerText = `R$ ${saldo.toFixed(2)}`;
+      } else {
+        lblCardSaldo.innerText = "Falta de Verba (Saldo Devedor)";
+        document.getElementById('prt-lbl-troco').innerText = "Saldo Devedor (Excesso de Gastos):";
+        cardSaldo.classList.add('negativo');
+        dispSaldo.classList.add('negativo');
+        dispSaldo.innerText = `R$ ${saldo.toFixed(2)}`;
+      }
+
+      renderizarTabela();
+      renderizarLogs();
+    }
+
+    function obterGastosFiltrados() {
+      const dtInicio = document.getElementById('flt-data-inicio').value;
+      const dtFim = document.getElementById('flt-data-fim').value;
+      const fOp = document.getElementById('flt-operador').value;
+      const fPagto = document.getElementById('flt-forma-pagto').value;
+      const fCat = document.getElementById('flt-categoria').value;
+
+      return appData.lancamentos.filter(item => {
+        const itemDate = item.dataHora.slice(0, 10);
+        if (dtInicio && itemDate < dtInicio) return false;
+        if (dtFim && itemDate > dtFim) return false;
+        if (fOp && item.operadorCaixa !== fOp) return false;
+        if (fPagto && item.formaPagto !== fPagto) return false;
+        if (fCat && item.categoria !== fCat) return false;
+        return true;
+      });
+    }
+
+    function renderizarTabela() {
+      const tbody = document.getElementById('tabela-gastos');
+      tbody.innerHTML = '';
+
+      const filtrados = obterGastosFiltrados();
+
+      if (filtrados.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#94a3b8; padding:2rem;">Nenhum lançamento encontrado.</td></tr>`;
+        return;
+      }
+
+      const podeExcluir = usuarioLogado && (usuarioLogado.perfil === 'gerente' || usuarioLogado.perfil === 'dev');
+
+      filtrados.forEach((item, index) => {
+        const tr = document.createElement('tr');
+        
+        let dataFmt = '-';
+        if (item.dataHora) {
+          const parts = item.dataHora.split('T');
+          const dateParts = parts[0].split('-');
+          dataFmt = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]} ${parts[1] || ''}`;
+        }
+        
+        // CORREÇÃO PEDIDA: Exibe "Malote" por padrão, e só mostra o detalhe do caixa se for emergência
+        let origemTexto = 'Malote';
+        let corOrigem = '#16a34a'; // verde para malote
+        if (item.fonteRecurso && item.fonteRecurso.includes('Caixa Local')) {
+          let detalhes = [];
+          if (item.dataCaixaRef) detalhes.push(item.dataCaixaRef);
+          if (item.operadorCaixa) detalhes.push(`Op: ${item.operadorCaixa}`);
+          origemTexto = detalhes.length > 0 ? `Caixa Local (${detalhes.join(' - ')})` : 'Caixa Local';
+          corOrigem = '#d97706'; // amarelo/laranja para caixa de emergência
+        }
+
+        let compHTML = item.comprovante ? `<img src="${item.comprovante}" class="img-thumb" onclick="ampliarImagem('${item.comprovante}')">` : '-';
+
+        tr.innerHTML = `
+          <td>${dataFmt}</td>
+          <td>${compHTML}</td>
+          <td><span class="tag">${item.categoria}</span></td>
+          <td><small style="color:${corOrigem}; font-weight:bold;">${origemTexto}</small></td>
+          <td><strong>${item.descricao}</strong></td>
+          <td>${item.formaPagto}</td>
+          <td><span class="user-badge">👤 ${item.usuario || 'Sistema'}</span></td>
+          <td style="color:var(--danger); font-weight:600;">R$ ${item.valor.toFixed(2)}</td>
+          ${podeExcluir ? `<td class="col-acoes"><button onclick="removerGastoComSenha(${index})" style="background:none; border:none; color:var(--danger); cursor:pointer; font-weight:bold;">Excluir</button></td>` : ''}
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderizarLogs() {
+      const tbody = document.getElementById('tabela-logs');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      if (!appData.logs || appData.logs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#94a3b8; padding:2rem;">Nenhum registro de log até o momento.</td></tr>`;
+        return;
+      }
+
+      appData.logs.forEach(log => {
+        const tr = document.createElement('tr');
+        const d = new Date(log.dataHora).toLocaleString('pt-BR');
+
+        let tagClass = 'tag-log-cfg';
+        if (log.tipo === 'ADD') tagClass = 'tag-log-add';
+        if (log.tipo === 'DEL') tagClass = 'tag-log-del';
+        if (log.tipo === 'AUTH') tagClass = 'tag-log-auth';
+
+        tr.innerHTML = `
+          <td><small>${d}</small></td>
+          <td><span class="tag-log ${tagClass}">${log.tipo}</span></td>
+          <td><strong>${log.usuario}</strong></td>
+          <td>${log.detalhe}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function ampliarImagem(src) {
+      document.getElementById('img-ampliada').src = src;
+      document.getElementById('modal-img').style.display = 'flex';
+    }
+
+    function fecharModalImagem() {
+      document.getElementById('modal-img').style.display = 'none';
+    }
+
+    function enviarResumoWhatsApp() {
+      const totalCaixa = (appData.aportes || []).reduce((acc, a) => acc + a.valor, 0);
+      const totalGasto = appData.lancamentos.reduce((acc, item) => acc + item.valor, 0);
+      const saldo = totalCaixa - totalGasto;
+
+      let msg = `*PRESTAÇÃO DE CONTAS SEMANAL - ${appData.nomeRestaurante}*\n`;
+      msg += `Data: ${new Date().toLocaleDateString('pt-BR')}\n\n`;
+      msg += `💵 *Verba do Malote:* R$ ${totalCaixa.toFixed(2)}\n`;
+      msg += `💸 *Total de Despesas:* R$ ${totalGasto.toFixed(2)}\n`;
+      msg += saldo >= 0 ? `💰 *Troco a Devolver:* R$ ${saldo.toFixed(2)}\n\n` : `⚠️ *Saldo Devedor:* R$ ${saldo.toFixed(2)}\n\n`;
+      msg += `_Relatório oficial emitido pelo sistema._`;
+
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+    }
+
+    function exportarBackupJSON() {
+      registrarLog('CFG', 'Exportou backup em formato JSON');
+      salvarDados();
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `Backup_${appData.nomeRestaurante.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function importarBackupJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        try {
+          const dadosImportados = JSON.parse(e.target.result);
+          if (dadosImportados && dadosImportados.lancamentos && dadosImportados.usuarios) {
+            if (confirm("Deseja realmente substituir todos os dados atuais da nuvem por este arquivo de backup?")) {
+              appData = dadosImportados;
+              registrarLog('CFG', 'Importou backup de arquivo JSON');
+              await salvarDados();
+              initApp();
+              alert("Backup importado e sincronizado com a nuvem!");
+            }
+          } else {
+            alert("O arquivo selecionado não é um backup válido deste sistema.");
+          }
+        } catch (err) {
+          alert("Erro ao ler o arquivo de backup: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function limparFiltros() {
+      document.getElementById('flt-data-inicio').value = '';
+      document.getElementById('flt-data-fim').value = '';
+      document.getElementById('flt-operador').value = '';
+      document.getElementById('flt-forma-pagto').value = '';
+      document.getElementById('flt-categoria').value = '';
+      atualizarPainel();
+    }
+
+    function pedirSenhaSeguranca() {
+      const informada = prompt('🔒 Digite a senha de segurança/exclusão:');
+      if (informada === appData.senhaExclusao) {
+        return true;
+      } else {
+        alert('❌ Senha incorreta! Ação cancelada.');
+        return false;
+      }
+    }
+
+    async function removerGastoComSenha(index) {
+      if (pedirSenhaSeguranca()) {
+        const removido = appData.lancamentos[index];
+        registrarLog('DEL', `Excluiu gasto: "${removido.descricao}" (R$ ${removido.valor.toFixed(2)})`);
+        appData.lancamentos.splice(index, 1);
+        await salvarDados();
+      }
+    }
+
+    async function limparSemanaComSenha() {
+      if (confirm('Atenção: Isso apagará TODOS os lançamentos da semana!') && pedirSenhaSeguranca()) {
+        registrarLog('DEL', 'Zerou todos os lançamentos da semana');
+        appData.lancamentos = [];
+        await salvarDados();
+      }
+    }
+
+    async function limparLogsComSenha() {
+      if (confirm('Deseja realmente apagar todo o histórico de logs do sistema?') && pedirSenhaSeguranca()) {
+        appData.logs = [];
+        await salvarDados();
+        alert('Histórico de logs apagado.');
+      }
+    }
+
+    async function adicionarCategoriaAba() {
+      const val = document.getElementById('nova-categoria-aba').value.trim();
+      if (val && !appData.categorias.includes(val)) {
+        appData.categorias.push(val);
+        document.getElementById('nova-categoria-aba').value = '';
+        registrarLog('CFG', `Criou nova categoria: "${val}"`);
+        await salvarDados(); atualizarSelects(); renderizarListasConfig();
+      }
+    }
+
+    async function removerCategoria(i) {
+      if (appData.categorias.length <= 1) return alert('Mantenha ao menos 1 categoria.');
+      if (pedirSenhaSeguranca()) {
+        const rem = appData.categorias[i];
+        appData.categorias.splice(i, 1);
+        registrarLog('CFG', `Removeu categoria: "${rem}"`);
+        await salvarDados(); atualizarSelects(); renderizarListasConfig();
+      }
+    }
+
+    async function adicionarOperadorCaixa() {
+      const val = document.getElementById('novo-operador-caixa').value.trim();
+      if (val && !appData.operadoresCaixa.includes(val)) {
+        appData.operadoresCaixa.push(val);
+        document.getElementById('novo-operador-caixa').value = '';
+        registrarLog('CFG', `Cadastrou operador de caixa: "${val}"`);
+        await salvarDados(); atualizarSelects(); renderizarListasConfig();
+      }
+    }
+
+    async function removerOperadorCaixa(i) {
+      if (appData.operadoresCaixa.length <= 1) return alert('Mantenha ao menos 1 operador de caixa.');
+      if (pedirSenhaSeguranca()) {
+        const rem = appData.operadoresCaixa[i];
+        appData.operadoresCaixa.splice(i, 1);
+        registrarLog('CFG', `Removeu operador de caixa: "${rem}"`);
+        await salvarDados(); atualizarSelects(); renderizarListasConfig();
+      }
+    }
+
+    function atualizarSelects() {
+      const catHTML = appData.categorias.map(c => `<option value="${c}">${c}</option>`).join('');
+      const pagHTML = appData.formasPagto.map(f => `<option value="${f}">${f}</option>`).join('');
+      const opHTML = appData.operadoresCaixa.map(o => `<option value="${o}">${o}</option>`).join('');
+
+      document.getElementById('categoria').innerHTML = catHTML;
+      document.getElementById('forma-pagto').innerHTML = pagHTML;
+      document.getElementById('gasto-operador-caixa').innerHTML = opHTML;
+      document.getElementById('aporte-operador-caixa').innerHTML = opHTML;
+
+      document.getElementById('flt-categoria').innerHTML = '<option value="">Todas</option>' + catHTML;
+      document.getElementById('flt-forma-pagto').innerHTML = '<option value="">Todas</option>' + pagHTML;
+      document.getElementById('flt-operador').innerHTML = '<option value="">Todos</option>' + opHTML;
+    }
+
+    function renderizarListasConfig() {
+      const catListHTML = appData.categorias.map((c, i) => `
+        <div class="item-chip"><span>${c}</span><button onclick="removerCategoria(${i})">&times;</button></div>
+      `).join('');
+
+      document.getElementById('lista-categorias-aba').innerHTML = catListHTML;
+
+      document.getElementById('lista-operadores-caixa').innerHTML = appData.operadoresCaixa.map((o, i) => `
+        <div class="item-chip"><span>🏪 ${o}</span><button onclick="removerOperadorCaixa(${i})">&times;</button></div>
+      `).join('');
+
+      document.getElementById('lista-formas').innerHTML = appData.formasPagto.map((f, i) => `
+        <div class="item-chip"><span>${f}</span><button onclick="removerFormaPagto(${i})">&times;</button></div>
+      `).join('');
+
+      document.getElementById('lista-usuarios').innerHTML = appData.usuarios.map((u, i) => {
+        let tag = 'Lançador';
+        if (u.perfil === 'gerente') tag = 'Gerente';
+        if (u.perfil === 'dev') tag = 'Desenvolvedor';
+        return `<div class="item-chip"><span>👤 ${u.nome} (${tag})</span><button onclick="removerUsuario(${i})">&times;</button></div>`;
+      }).join('');
+    }
+
+    async function salvarConfigGeral() {
+      const nome = document.getElementById('cfg-nome-restaurante').value;
+      if (nome) appData.nomeRestaurante = nome;
+
+      document.getElementById('app-title').innerText = appData.nomeRestaurante;
+      document.getElementById('login-title').innerText = appData.nomeRestaurante;
+      registrarLog('CFG', `Alterou o nome da unidade para "${nome}"`);
+      await salvarDados();
+      alert('Informações gerais salvas na nuvem!');
+    }
+
+    async function salvarSenhaExclusao() {
+      const nova = document.getElementById('cfg-senha-exclusao').value;
+      if (nova) {
+        appData.senhaExclusao = nova;
+        registrarLog('CFG', 'Alterou a senha de exclusão/segurança');
+        await salvarDados();
+        document.getElementById('cfg-senha-exclusao').value = '';
+        alert('Senha de exclusão atualizada na nuvem!');
+      }
+    }
+
+    function uploadLogo(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = async function(evt) {
+          appData.logoBase64 = evt.target.result;
+          aplicarLogo();
+          registrarLog('CFG', 'Atualizou o logo da unidade');
+          await salvarDados();
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    async function salvarTemaVisual() {
+      appData.tema = {
+        primary: document.getElementById('clr-primary').value,
+        accent: document.getElementById('clr-accent').value,
+        bg: document.getElementById('clr-bg').value
+      };
+      aplicarTema();
+      registrarLog('CFG', 'Atualizou as cores do tema visual');
+      await salvarDados();
+      alert('Tema salvo na nuvem!');
+    }
+
+    async function adicionarFormaPagto() {
+      const val = document.getElementById('nova-forma').value.trim();
+      if (val && !appData.formasPagto.includes(val)) {
+        appData.formasPagto.push(val);
+        document.getElementById('nova-forma').value = '';
+        registrarLog('CFG', `Adicionou forma de pagamento: "${val}"`);
+        await salvarDados(); atualizarSelects(); renderizarListasConfig();
+      }
+    }
+
+    async function removerFormaPagto(i) {
+      if (appData.formasPagto.length <= 1) return alert('Mantenha ao menos 1 forma de pagamento.');
+      if (pedirSenhaSeguranca()) {
+        const rem = appData.formasPagto[i];
+        appData.formasPagto.splice(i, 1);
+        registrarLog('CFG', `Removeu forma de pagamento: "${rem}"`);
+        await salvarDados(); atualizarSelects(); renderizarListasConfig();
+      }
+    }
+
+    document.getElementById('form-novo-usuario').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nome = document.getElementById('usr-nome').value.trim();
+      const perfil = document.getElementById('usr-perfil').value;
+      const senha = document.getElementById('usr-senha').value.trim();
+
+      if (nome && senha) {
+        if (appData.usuarios.some(u => u.nome === nome)) return alert('Já existe um usuário com este nome.');
+        appData.usuarios.push({ nome, perfil, senha });
+        registrarLog('CFG', `Cadastrou novo usuário: "${nome}" (${perfil})`);
+        await salvarDados(); popularSelectUsuarios(); renderizarListasConfig();
+        document.getElementById('usr-nome').value = '';
+        document.getElementById('usr-senha').value = '';
+        alert('Usuário cadastrado na nuvem!');
+      }
+    });
+
+    async function removerUsuario(i) {
+      if (appData.usuarios.length <= 1) return alert('Mantenha ao menos 1 usuário.');
+      if (pedirSenhaSeguranca()) {
+        const rem = appData.usuarios[i];
+        appData.usuarios.splice(i, 1);
+        registrarLog('CFG', `Removeu usuário: "${rem.nome}"`);
+        await salvarDados(); popularSelectUsuarios(); renderizarListasConfig();
+      }
+    }
+
+    async function resetarTudoComSenha() {
+      if (confirm('Atenção! Isso apagará TODOS os dados do banco na nuvem!') && pedirSenhaSeguranca()) {
+        appData = JSON.parse(JSON.stringify(estadoPadrao));
+        await salvarDados(); initApp(); logout();
+        alert('Sistema restaurado.');
+      }
+    }
+
+    function exportarCSV() {
+      const filtrados = obterGastosFiltrados();
+      if (filtrados.length === 0) return alert('Sem dados para exportar.');
+
+      let csv = '\uFEFF';
+      csv += `Relatorio - ${appData.nomeRestaurante}\n\n`;
+      csv += 'Data e Hora;Categoria;Fonte Origem;Descricao;Forma Pagamento;Lancado Por;Valor (R$)\n';
+
+      let total = 0;
+      filtrados.forEach(r => {
+        let d = '-';
+        if (r.dataHora) {
+          const parts = r.dataHora.split('T');
+          const dateParts = parts[0].split('-');
+          d = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]} ${parts[1] || ''}`;
+        }
+        
+        let origemTxt = r.fonteRecurso;
+
+        csv += `${d};"${r.categoria}";"${origemTxt}";"${r.descricao}";"${r.formaPagto}";"${r.usuario || 'N/A'}";${r.valor.toFixed(2).replace('.', ',')}\n`;
+        total += r.valor;
+      });
+
+      const totalCaixa = (appData.aportes || []).reduce((acc, a) => acc + a.valor, 0);
+
+      csv += `\nRESUMO\n`;
+      csv += `Verba do Malote Recebida;R$ ${totalCaixa.toFixed(2).replace('.', ',')}\n`;
+      csv += `Total Gasto (Filtrado);R$ ${total.toFixed(2).replace('.', ',')}\n`;
+      csv += `Troco a Devolver;R$ ${(totalCaixa - total).toFixed(2).replace('.', ',')}\n`;
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `Relatorio_${appData.nomeRestaurante.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+    }
+
+    function exportarPDF() {
+      document.getElementById('print-title').innerText = `Prestação de Contas - ${appData.nomeRestaurante}`;
+      document.getElementById('print-date').innerText = `Emitido em: ${new Date().toLocaleString('pt-BR')}`;
+      window.print();
+    }
+
+    // Inicialização direta do banco na nuvem
+    carregarDadosNuvem();
+  </script>
+</body>
+</html>
