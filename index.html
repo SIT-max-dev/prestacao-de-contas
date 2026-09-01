@@ -600,9 +600,9 @@
             <input type="date" id="flt-data-fim" onchange="atualizarPainel()">
           </div>
           <div class="form-group">
-            <label>Operador de Caixa</label>
-            <select id="flt-operador" onchange="atualizarPainel()">
-              <option value="">Todos</option>
+            <label>Categoria</label>
+            <select id="flt-categoria" onchange="atualizarPainel()">
+              <option value="">Todas as Categorias</option>
             </select>
           </div>
           <div class="form-group">
@@ -612,9 +612,9 @@
             </select>
           </div>
           <div class="form-group">
-            <label>Categoria</label>
-            <select id="flt-categoria" onchange="atualizarPainel()">
-              <option value="">Todas</option>
+            <label>Operador de Caixa (Emergência)</label>
+            <select id="flt-operador" onchange="atualizarPainel()">
+              <option value="">Todos</option>
             </select>
           </div>
           <button class="btn btn-primary" onclick="limparFiltros()">Limpar Filtros</button>
@@ -1228,15 +1228,14 @@
           dataFmt = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]} ${parts[1] || ''}`;
         }
         
-        // CORREÇÃO PEDIDA: Exibe "Malote" por padrão, e só mostra o detalhe do caixa se for emergência
         let origemTexto = 'Malote';
-        let corOrigem = '#16a34a'; // verde para malote
+        let corOrigem = '#16a34a';
         if (item.fonteRecurso && item.fonteRecurso.includes('Caixa Local')) {
           let detalhes = [];
           if (item.dataCaixaRef) detalhes.push(item.dataCaixaRef);
           if (item.operadorCaixa) detalhes.push(`Op: ${item.operadorCaixa}`);
           origemTexto = detalhes.length > 0 ? `Caixa Local (${detalhes.join(' - ')})` : 'Caixa Local';
-          corOrigem = '#d97706'; // amarelo/laranja para caixa de emergência
+          corOrigem = '#d97706';
         }
 
         let compHTML = item.comprovante ? `<img src="${item.comprovante}" class="img-thumb" onclick="ampliarImagem('${item.comprovante}')">` : '-';
@@ -1441,7 +1440,7 @@
       document.getElementById('gasto-operador-caixa').innerHTML = opHTML;
       document.getElementById('aporte-operador-caixa').innerHTML = opHTML;
 
-      document.getElementById('flt-categoria').innerHTML = '<option value="">Todas</option>' + catHTML;
+      document.getElementById('flt-categoria').innerHTML = '<option value="">Todas as Categorias</option>' + catHTML;
       document.getElementById('flt-forma-pagto').innerHTML = '<option value="">Todas</option>' + pagHTML;
       document.getElementById('flt-operador').innerHTML = '<option value="">Todos</option>' + opHTML;
     }
