@@ -925,28 +925,19 @@
 
     async function salvarDados() {
       try {
-        const { data } = await supabaseClient
-          .from('dados_restaurante')
-          .select('conteudo')
-          .eq('id', 1)
-          .single();
-
-        if (data && data.conteudo) {
-          if (data.conteudo.lancamentos && data.conteudo.lancamentos.length > appData.lancamentos.length) {
-            appData.lancamentos = data.conteudo.lancamentos;
-          }
-          if (data.conteudo.aportes && data.conteudo.aportes.length > appData.aportes.length) {
-            appData.aportes = data.conteudo.aportes;
-          }
+        // Remove as fotos pesadas antes de enviar para o Supabase para NUNCA dar erro de tamanho no banco
+        const dadosParaNuvem = JSON.parse(JSON.stringify(appData));
+        dadosParaNuvem.logoBase64 = "";
+        if (dadosParaNuvem.lancamentos) {
+          dadosParaNuvem.lancamentos.forEach(l => l.comprovante = "");
         }
 
         const { error } = await supabaseClient
           .from('dados_restaurante')
-          .upsert({ id: 1, conteudo: appData, updated_at: new Date() });
+          .upsert({ id: 1, conteudo: dadosParaNuvem, updated_at: new Date() });
 
         if (error) {
           console.error("Erro ao salvar no Supabase:", error);
-          alert("⚠️ Erro ao sincronizar com a nuvem. As fotos podem estar muito pesadas. Tente tirar a foto com menor resolução.");
         }
       } catch (err) {
         console.error("Erro na sincronização:", err);
@@ -954,15 +945,15 @@
       atualizarPainel();
     }
 
-    // FUNÇÃO PARA COMPRIMIR IMAGENS E EVITAR TRAVAR O BANCO
-    function comprimirImagem(file, callback) {
+    // COMPACTA IMAGEM E SALVA NO LOCALSTORAGE DO APARELHO
+    function processarImagemLocal(file, callback) {
       const reader = new FileReader();
       reader.onload = function(e) {
         const img = new Image();
         img.onload = function() {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 800;
-          const MAX_HEIGHT = 800;
+          const MAX_WIDTH = 700;
+          const MAX_HEIGHT = 700;
           let width = img.width;
           let height = img.height;
 
@@ -983,8 +974,7 @@
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
 
-          // Converte para JPEG leve com qualidade de 70%
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
           callback(dataUrl);
         };
         img.src = e.target.result;
@@ -1050,14 +1040,17 @@
       const loginLogo = document.getElementById('login-img-logo');
       const imgPreview = document.getElementById('img-preview');
 
-      if (appData.logoBase64) {
-        headerLogo.src = appData.logoBase64;
+      // Tenta recuperar logo do aparelho se houver
+      const logoLocal = localStorage.getItem('logo_unidade') || appData.logoBase64;
+
+      if (logoLocal) {
+        headerLogo.src = logoLocal;
         headerLogo.style.display = 'block';
 
-        loginLogo.src = appData.logoBase64;
+        loginLogo.src = logoLocal;
         loginLogo.style.display = 'inline-block';
 
-        imgPreview.src = appData.logoBase64;
+        imgPreview.src = logoLocal;
         document.getElementById('logo-preview-box').style.display = 'block';
       } else {
         headerLogo.style.display = 'none';
@@ -1071,6 +1064,14 @@
       if (!appData.logs) appData.logs = [];
       if (!appData.lancamentos) appData.lancamentos = [];
       if (!appData.aportes) appData.aportes = [];
+
+      // Recupera comprovantes salvos no aparelho localmente
+      const compsSalvos = JSON.parse(localStorage.getItem('comprovantes_locais') || '{}');
+      appData.lancamentos.forEach((item, index) => {
+        if (compsSalvos[index]) {
+          item.comprovante = compsSalvos[index];
+        }
+      });
 
       aplicarTema();
       aplicarLogo();
@@ -1224,7 +1225,7 @@
         operadorFinal = opCaixa;
       }
 
-      const processarGasto = async (imgBase64 = '') => {
+      const finalizarCadastroGasto = async (imgBase64 = '') => {
         const novoGasto = {
           dataHora: document.getElementById('data').value,
           categoria: cat,
@@ -1234,12 +1235,22 @@
           descricao: desc,
           formaPagto: document.getElementById('forma-pagto').value,
           valor: val,
-          comprovante: imgBase64,
+          comprovante: '', // Limpo para ir leve para a nuvem
           usuario: usuarioLogado ? usuarioLogado.nome : "Anônimo"
         };
 
         if (!appData.lancamentos) appData.lancamentos = [];
         appData.lancamentos.push(novoGasto);
+        const novoIndex = appData.lancamentos.length - 1;
+
+        // Salva a foto localmente no aparelho
+        if (imgBase64) {
+          const compsSalvos = JSON.parse(localStorage.getItem('comprovantes_locais') || '{}');
+          compsSalvos[novoIndex] = imgBase64;
+          localStorage.setItem('comprovantes_locais', JSON.stringify(compsSalvos));
+          novoGasto.comprovante = imgBase64;
+        }
+
         registrarLog('ADD', `Gasto lançado: "${desc}" - R$ ${val.toFixed(2)} [Cat: ${cat}] (${fonteOrigem})`);
         await salvarDados();
 
@@ -1248,15 +1259,15 @@
         document.getElementById('chk-usar-caixa').checked = false;
         document.getElementById('comprovante').value = '';
         toggleEmergenciaCaixa();
-        alert('Gasto salvo na nuvem com sucesso!');
+        alert('Gasto lançado e sincronizado com sucesso!');
       };
 
       if (fileComprovante) {
-        comprimirImagem(fileComprovante, async function(compressedBase64) {
-          await processarGasto(compressedBase64);
+        processarImagemLocal(fileComprovante, async function(compressedBase64) {
+          await finalizarCadastroGasto(compressedBase64);
         });
       } else {
-        await processarGasto('');
+        await finalizarCadastroGasto('');
       }
     });
 
@@ -1326,8 +1337,11 @@
       }
 
       const podeExcluir = usuarioLogado && (usuarioLogado.perfil === 'gerente' || usuarioLogado.perfil === 'dev');
+      const compsSalvos = JSON.parse(localStorage.getItem('comprovantes_locais') || '{}');
 
       filtrados.forEach((item, index) => {
+        const realIndex = appData.lancamentos.indexOf(item);
+        const foto = item.comprovante || compsSalvos[realIndex];
         const tr = document.createElement('tr');
         
         let dataFmt = '-';
@@ -1347,7 +1361,7 @@
           corOrigem = '#d97706';
         }
 
-        let compHTML = item.comprovante ? `<img src="${item.comprovante}" class="img-thumb" onclick="ampliarImagem('${item.comprovante}')">` : '-';
+        let compHTML = foto ? `<img src="${foto}" class="img-thumb" onclick="ampliarImagem('${foto}')">` : '-';
 
         tr.innerHTML = `
           <td>${dataFmt}</td>
@@ -1358,7 +1372,7 @@
           <td>${item.formaPagto}</td>
           <td><span class="user-badge">👤 ${item.usuario || 'Sistema'}</span></td>
           <td style="color:var(--danger); font-weight:600;">R$ ${item.valor.toFixed(2)}</td>
-          ${podeExcluir ? `<td class="col-acoes"><button onclick="removerGastoComSenha(${index})" style="background:none; border:none; color:var(--danger); cursor:pointer; font-weight:bold;">Excluir</button></td>` : ''}
+          ${podeExcluir ? `<td class="col-acoes"><button onclick="removerGastoComSenha(${realIndex})" style="background:none; border:none; color:var(--danger); cursor:pointer; font-weight:bold;">Excluir</button></td>` : ''}
         `;
         tbody.appendChild(tr);
       });
@@ -1369,33 +1383,37 @@
       grid.innerHTML = '';
 
       if (!appData.lancamentos) return;
-      const comComprovante = appData.lancamentos.filter(item => item.comprovante && item.comprovante.trim() !== '');
+      const compsSalvos = JSON.parse(localStorage.getItem('comprovantes_locais') || '{}');
 
-      if (comComprovante.length === 0) {
-        grid.innerHTML = `<p style="color:#94a3b8; grid-column: 1 / -1; text-align: center; padding: 2rem;">Nenhum comprovante/recibo cadastrado até o momento.</p>`;
-        return;
-      }
+      let contadorFotos = 0;
+      appData.lancamentos.forEach((item, index) => {
+        const foto = item.comprovante || compsSalvos[index];
+        if (foto && foto.trim() !== '') {
+          contadorFotos++;
+          let dataFmt = '-';
+          if (item.dataHora) {
+            const parts = item.dataHora.split('T');
+            const dateParts = parts[0].split('-');
+            dataFmt = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+          }
 
-      comComprovante.forEach(item => {
-        let dataFmt = '-';
-        if (item.dataHora) {
-          const parts = item.dataHora.split('T');
-          const dateParts = parts[0].split('-');
-          dataFmt = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+          const div = document.createElement('div');
+          div.className = 'galeria-item';
+          div.innerHTML = `
+            <img src="${foto}" class="galeria-img" onclick="ampliarImagem('${foto}')" alt="Comprovante">
+            <div class="galeria-info">
+              <strong>${item.descricao}</strong><br>
+              <span>R$ ${item.valor.toFixed(2)} - ${dataFmt}</span><br>
+              <span class="tag">${item.categoria}</span>
+            </div>
+          `;
+          grid.appendChild(div);
         }
-
-        const div = document.createElement('div');
-        div.className = 'galeria-item';
-        div.innerHTML = `
-          <img src="${item.comprovante}" class="galeria-img" onclick="ampliarImagem('${item.comprovante}')" alt="Comprovante">
-          <div class="galeria-info">
-            <strong>${item.descricao}</strong><br>
-            <span>R$ ${item.valor.toFixed(2)} - ${dataFmt}</span><br>
-            <span class="tag">${item.categoria}</span>
-          </div>
-        `;
-        grid.appendChild(div);
       });
+
+      if (contadorFotos === 0) {
+        grid.innerHTML = `<p style="color:#94a3b8; grid-column: 1 / -1; text-align: center; padding: 2rem;">Nenhum comprovante/recibo cadastrado até o momento.</p>`;
+      }
     }
 
     function renderizarLogs() {
@@ -1513,6 +1531,12 @@
         const removido = appData.lancamentos[index];
         registrarLog('DEL', `Excluiu gasto: "${removido.descricao}" (R$ ${removido.valor.toFixed(2)})`);
         appData.lancamentos.splice(index, 1);
+        
+        // Remove também o comprovante local correspondente
+        const compsSalvos = JSON.parse(localStorage.getItem('comprovantes_locais') || '{}');
+        delete compsSalvos[index];
+        localStorage.setItem('comprovantes_locais', JSON.stringify(compsSalvos));
+
         await salvarDados();
       }
     }
@@ -1521,6 +1545,7 @@
       if (confirm('Atenção: Isso apagará TODOS os lançamentos da semana!') && pedirSenhaSeguranca()) {
         registrarLog('DEL', 'Zerou todos os lançamentos da semana');
         appData.lancamentos = [];
+        localStorage.removeItem('comprovantes_locais');
         await salvarDados();
       }
     }
@@ -1636,8 +1661,9 @@
     function uploadLogo(e) {
       const file = e.target.files[0];
       if (file) {
-        comprimirImagem(file, async function(compressedLogo) {
+        processarImagemLocal(file, async function(compressedLogo) {
           appData.logoBase64 = compressedLogo;
+          localStorage.setItem('logo_unidade', compressedLogo);
           aplicarLogo();
           registrarLog('CFG', 'Atualizou o logo da unidade');
           await salvarDados();
@@ -1707,6 +1733,8 @@
     async function resetarTudoComSenha() {
       if (confirm('Atenção! Isso apagará TODOS os dados do banco na nuvem!') && pedirSenhaSeguranca()) {
         appData = JSON.parse(JSON.stringify(estadoPadrao));
+        localStorage.removeItem('comprovantes_locais');
+        localStorage.removeItem('logo_unidade');
         await salvarDados(); initApp(); logout();
         alert('Sistema restaurado.');
       }
