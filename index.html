@@ -349,6 +349,39 @@
       border: 1px solid var(--border);
     }
 
+    /* GALERIA DE COMPROVANTES */
+    .galeria-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1.25rem;
+      margin-top: 1rem;
+    }
+
+    .galeria-item {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .galeria-img {
+      width: 100%;
+      height: 160px;
+      object-fit: cover;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+    }
+
+    .galeria-info {
+      font-size: 0.8rem;
+      color: #475569;
+    }
+
     .item-tag-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
     .item-chip {
       background-color: #f1f5f9;
@@ -402,9 +435,10 @@
       margin-bottom: 1.5rem;
     }
 
+    /* ESTILOS DE IMPRESSÃO - OCULTA A COLUNA E AS FOTOS NO RELATÓRIO DA MATRIZ */
     @media print {
       body { background: white; color: black; }
-      header, nav, .login-overlay, .btn, form, #tab-config, #tab-categorias, #tab-logs, .col-acoes, .filter-box, .btn-admin-only, .section-card-compact {
+      header, nav, .login-overlay, .btn, form, #tab-config, #tab-categorias, #tab-logs, #tab-galeria, .col-acoes, .col-comprovante, .filter-box, .btn-admin-only, .section-card-compact {
         display: none !important;
       }
       .container { max-width: 100%; margin: 0; padding: 0; }
@@ -435,7 +469,9 @@
       <form id="form-login" style="display: flex; flex-direction: column; gap: 1rem;">
         <div class="form-group" style="text-align: left;">
           <label>Usuário</label>
-          <select id="login-usuario" required></select>
+          <select id="login-usuario" required>
+            <option value="">Carregando usuários...</option>
+          </select>
         </div>
         <div class="form-group" style="text-align: left;">
           <label>Senha</label>
@@ -466,6 +502,7 @@
       <nav>
         <button class="nav-btn active" onclick="switchTab('tab-lancamentos')">📊 Lançamentos</button>
         <button class="nav-btn" onclick="switchTab('tab-categorias')">🏷️ Categorias</button>
+        <button class="nav-btn" onclick="switchTab('tab-galeria')">🖼️ Comprovantes</button>
         <button class="nav-btn" id="btn-tab-logs" onclick="switchTab('tab-logs')">📜 Logs</button>
         <button class="nav-btn" id="btn-tab-config" onclick="switchTab('tab-config')">⚙️ Configurações</button>
       </nav>
@@ -537,8 +574,8 @@
             <input type="number" id="valor" step="0.01" min="0.01" placeholder="0,00" style="font-weight: bold; font-size: 1rem; color: var(--danger);" required>
           </div>
           <div class="form-group">
-            <label for="comprovante">Foto Comprovante (Opcional)</label>
-            <input type="file" id="comprovante" accept="image/*">
+            <label for="comprovante">📸 Foto Recibo / Câmera (Opcional)</label>
+            <input type="file" id="comprovante" accept="image/*" capture="environment">
           </div>
 
           <!-- CHECKBOX OPCIONAL DE EMERGÊNCIA (USAR CAIXA LOCAL) -->
@@ -629,7 +666,7 @@
             <thead>
               <tr>
                 <th>Data e Hora</th>
-                <th>Comprovante</th>
+                <th class="col-comprovante">Comprovante</th>
                 <th>Categoria</th>
                 <th>Fonte / Origem</th>
                 <th>Descrição / Profissional</th>
@@ -669,11 +706,20 @@
       </div>
     </div>
 
-    <!-- ABA 3: LOGS DO SISTEMA (EXCLUSIVO GERENTE E DEV) -->
+    <!-- ABA 3: GALERIA DE COMPROVANTES -->
+    <div id="tab-galeria" class="tab-content">
+      <div class="section-card">
+        <h2>🖼️ Galeria de Comprovantes e Recibos</h2>
+        <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1rem;">Visualize rapidamente todas as fotos de recibos e comprovantes enviados nos lançamentos.</p>
+        <div id="grid-galeria" class="galeria-grid"></div>
+      </div>
+    </div>
+
+    <!-- ABA 4: LOGS DO SISTEMA -->
     <div id="tab-logs" class="tab-content">
       <div class="section-card">
         <h2>📜 Registro de Atividades e Logs do Sistema</h2>
-        <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1rem;">Histórico completo de alterações, exclusões e adições realizadas no sistema (Visível apenas para Gerente e Dev).</p>
+        <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1rem;">Histórico completo de alterações, exclusões e adições realizadas no sistema.</p>
 
         <div class="table-responsive">
           <table>
@@ -695,7 +741,7 @@
       </div>
     </div>
 
-    <!-- ABA 4: CONFIGURAÇÕES -->
+    <!-- ABA 5: CONFIGURAÇÕES -->
     <div id="tab-config" class="tab-content">
       
       <!-- GERENCIAMENTO DE BACKUP MANUAL -->
@@ -851,6 +897,8 @@
     let appData = estadoPadrao;
     let usuarioLogado = null;
 
+    popularSelectUsuarios();
+
     async function carregarDadosNuvem() {
       try {
         const { data, error } = await supabaseClient
@@ -917,16 +965,15 @@
     }
 
     function switchTab(tabId) {
-      if ((tabId === 'tab-config' || tabId === 'tab-logs') && usuarioLogado && usuarioLogado.perfil === 'lancador') {
-        alert('Acesso negado: Perfil sem permissão para acessar esta página.');
-        return;
-      }
-
       document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
       document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
 
       document.getElementById(tabId).classList.add('active');
       if (event && event.target) event.target.classList.add('active');
+
+      if (tabId === 'tab-galeria') {
+        renderizarGaleria();
+      }
     }
 
     function aplicarTema() {
@@ -984,6 +1031,7 @@
 
     function popularSelectUsuarios() {
       const select = document.getElementById('login-usuario');
+      if (!select) return;
       select.innerHTML = appData.usuarios.map(u => {
         let tagPerfil = 'Lançador';
         if (u.perfil === 'gerente') tagPerfil = 'Gerente';
@@ -1242,7 +1290,7 @@
 
         tr.innerHTML = `
           <td>${dataFmt}</td>
-          <td>${compHTML}</td>
+          <td class="col-comprovante">${compHTML}</td>
           <td><span class="tag">${item.categoria}</span></td>
           <td><small style="color:${corOrigem}; font-weight:bold;">${origemTexto}</small></td>
           <td><strong>${item.descricao}</strong></td>
@@ -1252,6 +1300,39 @@
           ${podeExcluir ? `<td class="col-acoes"><button onclick="removerGastoComSenha(${index})" style="background:none; border:none; color:var(--danger); cursor:pointer; font-weight:bold;">Excluir</button></td>` : ''}
         `;
         tbody.appendChild(tr);
+      });
+    }
+
+    function renderizarGaleria() {
+      const grid = document.getElementById('grid-galeria');
+      grid.innerHTML = '';
+
+      const comComprovante = appData.lancamentos.filter(item => item.comprovante && item.comprovante.trim() !== '');
+
+      if (comComprovante.length === 0) {
+        grid.innerHTML = `<p style="color:#94a3b8; grid-column: 1 / -1; text-align: center; padding: 2rem;">Nenhum comprovante/recibo cadastrado até o momento.</p>`;
+        return;
+      }
+
+      comComprovante.forEach(item => {
+        let dataFmt = '-';
+        if (item.dataHora) {
+          const parts = item.dataHora.split('T');
+          const dateParts = parts[0].split('-');
+          dataFmt = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+        }
+
+        const div = document.createElement('div');
+        div.className = 'galeria-item';
+        div.innerHTML = `
+          <img src="${item.comprovante}" class="galeria-img" onclick="ampliarImagem('${item.comprovante}')" alt="Comprovante">
+          <div class="galeria-info">
+            <strong>${item.descricao}</strong><br>
+            <span>R$ ${item.valor.toFixed(2)} - ${dataFmt}</span><br>
+            <span class="tag">${item.categoria}</span>
+          </div>
+        `;
+        grid.appendChild(div);
       });
     }
 
@@ -1614,7 +1695,7 @@
       window.print();
     }
 
-    // Inicialização direta do banco na nuvem
+    // Inicia carregando os dados da nuvem
     carregarDadosNuvem();
   </script>
 </body>
