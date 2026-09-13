@@ -54,13 +54,11 @@
 
     .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
     .card { background: var(--card); padding: 1.25rem; border-radius: 10px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-    .card.negativo { background-color: #fef2f2; border-color: #fca5a5; }
     .card h3 { font-size: 0.85rem; text-transform: uppercase; color: #64748b; margin-bottom: 0.5rem; }
     .card .value { font-size: 1.5rem; font-weight: 700; }
     .val-verba { color: var(--primary); }
     .val-gasto { color: var(--danger); }
     .val-saldo { color: var(--accent); }
-    .val-saldo.negativo { color: var(--danger); }
 
     .section-card { background: var(--card); border-radius: 10px; border: 1px solid var(--border); padding: 1.5rem; margin-bottom: 1.5rem; }
     .section-card-main { background: #ffffff; border: 2px solid var(--accent); border-radius: 12px; padding: 1.75rem; margin-bottom: 1.5rem; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.08); }
@@ -133,6 +131,7 @@
       th, td { border: 1px solid #000; padding: 6px; }
       .print-header { display: block !important; margin-bottom: 15px; text-align: center; }
       .print-resumo { display: block !important; }
+      .col-comprovante-print { display: none !important; }
     }
     .print-header { display: none; }
   </style>
@@ -290,7 +289,7 @@
           <table>
             <thead>
               <tr>
-                <th>Data e Hora</th><th>Comprovante</th><th>Categoria</th><th>Fonte</th><th>Descrição</th><th>Pagamento</th><th>Valor</th><th>Ações</th>
+                <th>Data e Hora</th><th class="col-comprovante-print">Comprovante</th><th>Categoria</th><th>Fonte</th><th>Descrição</th><th>Pagamento</th><th>Valor</th><th>Ações</th>
               </tr>
             </thead>
             <tbody id="tabela-gastos"></tbody>
@@ -305,10 +304,17 @@
       </div>
     </div>
 
-    <!-- ABA 2: GALERIA -->
+    <!-- ABA 2: GALERIA DE COMPROVANTES -->
     <div id="tab-galeria" class="tab-content">
       <div class="section-card">
-        <h2>🖼️ Galeria de Comprovantes</h2>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:1rem;">
+          <h2>🖼️ Galeria de Comprovantes</h2>
+          <div style="display:flex; gap:0.5rem; align-items:center;">
+            <input type="date" id="filtro-data-galeria" style="padding:0.4rem; font-size:0.85rem;">
+            <button class="btn btn-primary" onclick="baixarImagensPorData()" style="font-size:0.85rem; padding:0.4rem 0.8rem;">📥 Baixar Fotos da Data</button>
+            <button class="btn btn-success" onclick="baixarTodasImagens()" style="font-size:0.85rem; padding:0.4rem 0.8rem;">📥 Baixar Todas as Fotos</button>
+          </div>
+        </div>
         <div id="grid-galeria" class="galeria-grid"></div>
       </div>
     </div>
@@ -321,14 +327,22 @@
       </div>
     </div>
 
-    <!-- ABA 4: GERÊNCIA E CONFIGURAÇÕES (GERENTE & DEV) -->
+    <!-- ABA 4: GERÊNCIA E CONFIGURAÇÕES -->
     <div id="tab-config" class="tab-content">
       
-      <!-- GERENCIAMENTO DE USUÁRIOS E SENHAS -->
+      <!-- ZERAR TUDO (PROTEGIDO) -->
+      <div class="section-card" style="border-color: #fca5a5; background-color: #fffefd;">
+        <h2 style="color: var(--danger);">⚠️ Zerar Sistema Completo</h2>
+        <p style="font-size:0.85rem; color:#64748b; margin-bottom:1rem;">Apaga todos os lançamentos correntes, entradas e histórico. Exige senha de Gerente ou Dev.</p>
+        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+          <input type="password" id="senha-zerar" placeholder="Digite sua senha" style="max-width: 250px;">
+          <button class="btn btn-danger" onclick="zerarSistemaCompleto()">🗑️ Zerar Tudo Agora</button>
+        </div>
+      </div>
+
+      <!-- GESTÃO DE USUÁRIOS E SENHAS -->
       <div class="section-card">
         <h2>👤 Usuários Cadastrados e Senhas</h2>
-        <p style="font-size:0.85rem; color:#64748b; margin-bottom:1rem;">Visualize as contas ativas do sistema ou cadastre novos usuários com permissões específicas.</p>
-        
         <form id="form-novo-usuario" class="form-grid" style="margin-bottom: 1.5rem;">
           <div class="form-group"><label>Nome</label><input type="text" id="usr-nome" placeholder="Ex: Caixa Tarde" required></div>
           <div class="form-group">
@@ -336,7 +350,7 @@
             <select id="usr-perfil" required>
               <option value="lancador">Lançador (Apenas Lançar)</option>
               <option value="gerente">Gerente (Gestão + Senhas + Logs)</option>
-              <option value="dev">Desenvolvedor (Acesso Total 100%)</option>
+              <option value="dev">Desenvolvedor (Acesso Total)</option>
             </select>
           </div>
           <div class="form-group"><label>Senha</label><input type="text" id="usr-senha" placeholder="Senha de acesso" required></div>
@@ -351,7 +365,7 @@
         </div>
       </div>
 
-      <!-- GERENCIAR CATEGORIAS E FORMAS DE PAGAMENTO -->
+      <!-- CATEGORIAS -->
       <div class="section-card">
         <h2>🏷️ Categorias de Gastos</h2>
         <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
@@ -361,6 +375,7 @@
         <div class="item-tag-list" id="lista-categorias"></div>
       </div>
 
+      <!-- OPERADORES -->
       <div class="section-card">
         <h2>🏪 Operadores de Caixa</h2>
         <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
@@ -370,10 +385,9 @@
         <div class="item-tag-list" id="lista-operadores-caixa"></div>
       </div>
 
-      <!-- LOGS DO SISTEMA -->
+      <!-- LOGS -->
       <div class="section-card">
         <h2>📜 Logs de Atividades do Sistema</h2>
-        <p style="font-size:0.85rem; color:#64748b; margin-bottom:1rem;">Histórico completo de ações realizadas no sistema por cada usuário.</p>
         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
           <table>
             <thead><tr><th>Data/Hora</th><th>Tipo</th><th>Usuário</th><th>Detalhes</th></tr></thead>
@@ -382,10 +396,9 @@
         </div>
       </div>
 
-      <!-- APENAS PARA DESENVOLVEDOR -->
+      <!-- BACKUP -->
       <div class="section-card area-dev-only" style="display:none; border-color: #fca5a5;">
         <h2 style="color: var(--danger);">⚠️ Zona de Acesso Total (Desenvolvedor)</h2>
-        <p style="font-size:0.85rem; color:#64748b; margin-bottom:1rem;">Ferramentas de backup avançadas.</p>
         <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
           <button class="btn btn-primary" onclick="exportarBackupJSON()">📤 Baixar Backup Completo (.json)</button>
           <label class="btn btn-success" style="cursor: pointer;">
@@ -547,6 +560,26 @@
       document.getElementById('login-senha').value = '';
     }
 
+    // ZERAR SISTEMA COM SENHA DE GERENTE OU DEV
+    async function zerarSistemaCompleto() {
+      const senha = document.getElementById('senha-zerar').value.trim();
+      const userValido = appData.usuarios.find(u => (u.perfil === 'gerente' || u.perfil === 'dev') && u.senha === senha);
+
+      if (!userValido) {
+        return alert('Senha incorreta ou usuário sem permissão de Gerente/Dev!');
+      }
+
+      if (confirm('Tem certeza absoluta que deseja ZERAR TUDO? Esta ação apagará todos os lançamentos atuais.')) {
+        appData.aportes = [];
+        appData.lancamentos = [];
+        appData.historicoSemanas = [];
+        registrarLog('CFG', `Sistema zerado por ${userValido.nome}`);
+        await salvarDados();
+        document.getElementById('senha-zerar').value = '';
+        alert('Sistema limpo com sucesso!');
+      }
+    }
+
     document.getElementById('form-aporte').addEventListener('submit', async (e) => {
       e.preventDefault();
       const dtCaixa = document.getElementById('aporte-data-caixa').value;
@@ -649,7 +682,7 @@
       tbody.innerHTML = (appData.lancamentos || []).map((item, i) => `
         <tr>
           <td>${item.dataHora}</td>
-          <td>${item.comprovante ? `<img src="${item.comprovante}" class="img-thumb" onclick="ampliar('${item.comprovante}')">` : '-'}</td>
+          <td class="col-comprovante-print">${item.comprovante ? `<img src="${item.comprovante}" class="img-thumb" onclick="ampliar('${item.comprovante}')">` : '-'}</td>
           <td><span class="tag">${item.categoria}</span></td><td>${item.fonteRecurso}</td>
           <td><strong>${item.descricao}</strong></td><td>${item.formaPagto}</td>
           <td>R$ ${item.valor.toFixed(2)}</td>
@@ -661,12 +694,39 @@
     function renderizarGaleria() {
       const grid = document.getElementById('grid-galeria');
       const comFoto = (appData.lancamentos || []).filter(item => item.comprovante);
-      grid.innerHTML = comFoto.map(item => `
+      grid.innerHTML = comFoto.map((item, idx) => `
         <div class="galeria-item">
           <img src="${item.comprovante}" class="galeria-img" onclick="ampliar('${item.comprovante}')">
-          <div class="galeria-info"><strong>${item.descricao}</strong><br>R$ ${item.valor.toFixed(2)}</div>
+          <div class="galeria-info">
+            <strong>${item.descricao}</strong><br><small>${item.dataHora}</small><br>R$ ${item.valor.toFixed(2)}
+            <br><a href="${item.comprovante}" download="comprovante_${idx}.jpg" class="btn btn-primary" style="font-size:0.75rem; padding:0.2rem 0.5rem; margin-top:0.3rem;">📥 Baixar Foto</a>
+          </div>
         </div>
       `).join('') || `<p style="color:#94a3b8; grid-column: 1/-1; text-align:center;">Nenhum comprovante.</p>`;
+    }
+
+    function baixarTodasImagens() {
+      const comFoto = (appData.lancamentos || []).filter(item => item.comprovante);
+      if (comFoto.length === 0) return alert('Nenhuma foto para baixar.');
+      comFoto.forEach((item, idx) => {
+        const a = document.createElement('a');
+        a.href = item.comprovante;
+        a.download = `comprovante_${idx + 1}.jpg`;
+        a.click();
+      });
+    }
+
+    function baixarImagensPorData() {
+      const dataFiltro = document.getElementById('filtro-data-galeria').value;
+      if (!dataFiltro) return alert('Selecione uma data para filtrar.');
+      const filtradas = (appData.lancamentos || []).filter(item => item.comprovante && item.dataHora.startsWith(dataFiltro));
+      if (filtradas.length === 0) return alert('Nenhuma foto encontrada para esta data.');
+      filtradas.forEach((item, idx) => {
+        const a = document.createElement('a');
+        a.href = item.comprovante;
+        a.download = `foto_${dataFiltro}_${idx + 1}.jpg`;
+        a.click();
+      });
     }
 
     function renderizarHistoricoSemanas() {
@@ -740,7 +800,6 @@
       a.click();
     }
 
-    // GESTÃO DE USUÁRIOS
     document.getElementById('form-novo-usuario').addEventListener('submit', async (e) => {
       e.preventDefault();
       const nome = document.getElementById('usr-nome').value.trim();
@@ -799,7 +858,6 @@
     }
 
     function renderizarListasConfig() {
-      // Tabela de Usuários e Senhas
       const tbodyUsr = document.getElementById('tabela-usuarios');
       tbodyUsr.innerHTML = appData.usuarios.map((u, i) => `
         <tr>
@@ -810,17 +868,14 @@
         </tr>
       `).join('');
 
-      // Categorias
       document.getElementById('lista-categorias').innerHTML = appData.categorias.map((c, i) => `
         <div class="item-chip"><span>${c}</span><button onclick="removerCategoria(${i})">&times;</button></div>
       `).join('');
 
-      // Operadores
       document.getElementById('lista-operadores-caixa').innerHTML = appData.operadoresCaixa.map((o, i) => `
         <div class="item-chip"><span>🏪 ${o}</span><button onclick="removerOperadorCaixa(${i})">&times;</button></div>
       `).join('');
 
-      // Logs
       const tbodyLogs = document.getElementById('tabela-logs');
       tbodyLogs.innerHTML = (appData.logs || []).map(l => `
         <tr>
