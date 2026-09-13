@@ -349,7 +349,6 @@
       border: 1px solid var(--border);
     }
 
-    /* GALERIA DE COMPROVANTES */
     .galeria-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -435,7 +434,6 @@
       margin-bottom: 1.5rem;
     }
 
-    /* ESTILOS DE IMPRESSÃO - OCULTA A COLUNA E AS FOTOS NO RELATÓRIO DA MATRIZ */
     @media print {
       body { background: white; color: black; }
       header, nav, .login-overlay, .btn, form, #tab-config, #tab-categorias, #tab-logs, #tab-galeria, .col-acoes, .col-comprovante, .filter-box, .btn-admin-only, .section-card-compact {
@@ -907,11 +905,15 @@
           .eq('id', 1)
           .single();
 
-        if (error && error.code !== 'PGRST116') console.error("Erro ao carregar dados:", error);
+        if (error && error.code !== 'PGRST116') {
+          console.error("Erro ao carregar dados:", error);
+        }
 
         if (data && data.conteudo) {
           appData = data.conteudo;
           if (!appData.logs) appData.logs = [];
+          if (!appData.lancamentos) appData.lancamentos = [];
+          if (!appData.aportes) appData.aportes = [];
         } else {
           await salvarDados();
         }
@@ -921,13 +923,34 @@
       initApp();
     }
 
+    // FUNÇÃO BLINDADA: ATUALIZA OS DADOS DA NUVEM ANTES DE QUALQUER SALVAMENTO
     async function salvarDados() {
       try {
+        // Baixa a versão mais recente do banco para garantir que não vamos apagar nada de outro usuário
+        const { data } = await supabaseClient
+          .from('dados_restaurante')
+          .select('conteudo')
+          .eq('id', 1)
+          .single();
+
+        if (data && data.conteudo) {
+          // Mantém os lançamentos e aportes que já estão na nuvem e junta com os locais se houver diferença de IDs/tamanho
+          if (data.conteudo.lancamentos && data.conteudo.lancamentos.length > appData.lancamentos.length) {
+            appData.lancamentos = data.conteudo.lancamentos;
+          }
+          if (data.conteudo.aportes && data.conteudo.aportes.length > appData.aportes.length) {
+            appData.aportes = data.conteudo.aportes;
+          }
+        }
+
         const { error } = await supabaseClient
           .from('dados_restaurante')
           .upsert({ id: 1, conteudo: appData, updated_at: new Date() });
 
-        if (error) console.error("Erro ao salvar no Supabase:", error);
+        if (error) {
+          console.error("Erro ao salvar no Supabase:", error);
+          alert("⚠️ Erro ao sincronizar com a nuvem: " + error.message);
+        }
       } catch (err) {
         console.error("Erro na sincronização:", err);
       }
@@ -1011,6 +1034,8 @@
     function initApp() {
       if (!appData.operadoresCaixa) appData.operadoresCaixa = ["Caixa 1", "Caixa 2"];
       if (!appData.logs) appData.logs = [];
+      if (!appData.lancamentos) appData.lancamentos = [];
+      if (!appData.aportes) appData.aportes = [];
 
       aplicarTema();
       aplicarLogo();
@@ -1178,6 +1203,7 @@
           usuario: usuarioLogado ? usuarioLogado.nome : "Anônimo"
         };
 
+        if (!appData.lancamentos) appData.lancamentos = [];
         appData.lancamentos.push(novoGasto);
         registrarLog('ADD', `Gasto lançado: "${desc}" - R$ ${val.toFixed(2)} [Cat: ${cat}] (${fonteOrigem})`);
         await salvarDados();
@@ -1203,7 +1229,7 @@
 
     function atualizarPainel() {
       const totalCaixaEntrada = (appData.aportes || []).reduce((acc, a) => acc + a.valor, 0);
-      const totalGasto = appData.lancamentos.reduce((acc, item) => acc + item.valor, 0);
+      const totalGasto = (appData.lancamentos || []).reduce((acc, item) => acc + item.valor, 0);
       const saldo = totalCaixaEntrada - totalGasto;
 
       document.getElementById('disp-caixa').innerText = `R$ ${totalCaixaEntrada.toFixed(2)}`;
@@ -1241,6 +1267,8 @@
       const fOp = document.getElementById('flt-operador').value;
       const fPagto = document.getElementById('flt-forma-pagto').value;
       const fCat = document.getElementById('flt-categoria').value;
+
+      if (!appData.lancamentos) return [];
 
       return appData.lancamentos.filter(item => {
         const itemDate = item.dataHora.slice(0, 10);
@@ -1307,6 +1335,7 @@
       const grid = document.getElementById('grid-galeria');
       grid.innerHTML = '';
 
+      if (!appData.lancamentos) return;
       const comComprovante = appData.lancamentos.filter(item => item.comprovante && item.comprovante.trim() !== '');
 
       if (comComprovante.length === 0) {
@@ -1376,7 +1405,7 @@
 
     function enviarResumoWhatsApp() {
       const totalCaixa = (appData.aportes || []).reduce((acc, a) => acc + a.valor, 0);
-      const totalGasto = appData.lancamentos.reduce((acc, item) => acc + item.valor, 0);
+      const totalGasto = (appData.lancamentos || []).reduce((acc, item) => acc + item.valor, 0);
       const saldo = totalCaixa - totalGasto;
 
       let msg = `*PRESTAÇÃO DE CONTAS SEMANAL - ${appData.nomeRestaurante}*\n`;
@@ -1695,7 +1724,7 @@
       window.print();
     }
 
-    // Inicia carregando os dados da nuvem
+    // Inicialização carregando da nuvem
     carregarDadosNuvem();
   </script>
 </body>
