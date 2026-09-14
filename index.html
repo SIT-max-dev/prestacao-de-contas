@@ -204,10 +204,10 @@
       </div>
     </div>
 
-    <!-- SELETOR DE COMPETÊNCIA (MÊS / SEMANA) -->
+    <!-- SELETOR DE COMPETÊNCIA (MÊS / SEMANA DE QUINTA A QUINTA) -->
     <div class="competencia-bar">
       <div style="display: flex; align-items: center; gap: 0.5rem;">
-        <span style="font-size: 0.9rem; font-weight: 600;">📅 Período Ativo:</span>
+        <span style="font-size: 0.9rem; font-weight: 600;">📅 Fechamento de Quinta:</span>
       </div>
       <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
         <div style="display: flex; align-items: center; gap: 0.3rem;">
@@ -228,16 +228,15 @@
           </select>
         </div>
         <div style="display: flex; align-items: center; gap: 0.3rem;">
-          <label style="font-size: 0.8rem;">Semana:</label>
+          <label style="font-size: 0.8rem;">Ciclo / Semana:</label>
           <select id="sel-semana" onchange="mudarCompetencia()" style="padding: 0.3rem; color: #000; font-weight: bold;">
-            <option value="Semana 1">Semana 1</option>
-            <option value="Semana 2">Semana 2</option>
-            <option value="Semana 3" selected>Semana 3</option>
-            <option value="Semana 4">Semana 4</option>
-            <option value="Semana 5">Semana 5</option>
+            <option value="Semana até Quinta 03-09">Até Quinta 03/09</option>
+            <option value="Semana até Quinta 10-09">Até Quinta 10/09</option>
+            <option value="Semana até Quinta 17-09" selected>Até Quinta 17/09</option>
+            <option value="Semana até Quinta 24-09">Até Quinta 24/09</option>
           </select>
         </div>
-        <button class="btn btn-success" onclick="criarNovaSemanaPrompt()" style="font-size: 0.8rem; padding: 0.35rem 0.7rem;">+ Nova Semana</button>
+        <button class="btn btn-success" onclick="criarNovaSemanaPrompt()" style="font-size: 0.8rem; padding: 0.35rem 0.7rem;">+ Novo Ciclo (Quinta)</button>
       </div>
     </div>
 
@@ -282,7 +281,6 @@
             <input type="number" id="valor" step="0.01" min="0.01" placeholder="0,00" style="font-weight: bold; font-size: 1rem; color: var(--danger);" required>
           </div>
           
-          <!-- OPÇÕES DE FOTO: CÂMERA OU GALERIA -->
           <div class="form-group" style="grid-column: 1 / -1; background: #f8fafc; border: 1px dashed var(--border); padding: 0.75rem; border-radius: 6px;">
             <label style="margin-bottom: 0.4rem; display:block;">📸 Comprovante / Recibo (Opcional)</label>
             <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
@@ -327,7 +325,7 @@
           <button type="submit" class="btn btn-primary" style="padding: 0.45rem 1rem; font-size: 0.85rem;">+ Entrada</button>
         </form>
 
-        <h3 style="font-size: 0.95rem; color: #475569; margin-bottom: 0.5rem;">Entradas Registradas (Malotes) - Período Ativo:</h3>
+        <h3 style="font-size: 0.95rem; color: #475569; margin-bottom: 0.5rem;">Entradas Registradas (Malotes) - Ciclo Ativo:</h3>
         <div class="table-responsive">
           <table>
             <thead><tr><th>Data</th><th>Responsável</th><th>Obs</th><th>Valor</th><th>Ações</th></tr></thead>
@@ -337,7 +335,7 @@
       </div>
 
       <div class="section-card">
-        <h2>Histórico de Lançamentos - Período Ativo</h2>
+        <h2>Histórico de Lançamentos - Ciclo Ativo</h2>
         <div class="table-responsive">
           <table>
             <thead>
@@ -360,7 +358,7 @@
     <div id="tab-galeria" class="tab-content">
       <div class="section-card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:1rem;">
-          <h2>🖼️ Galeria de Comprovantes (Período Ativo)</h2>
+          <h2>🖼️ Galeria de Comprovantes (Ciclo Ativo)</h2>
           <button class="btn btn-success" onclick="baixarTodasImagens()" style="font-size:0.85rem; padding:0.4rem 0.8rem;">📥 Baixar Todas as Fotos</button>
         </div>
         <div id="grid-galeria" class="galeria-grid"></div>
@@ -370,17 +368,15 @@
     <!-- ABA 3: GERÊNCIA E CONFIGURAÇÕES -->
     <div id="tab-config" class="tab-content">
       
-      <!-- ZERAR PERÍODO -->
       <div class="section-card" style="border-color: #fca5a5; background-color: #fffefd;">
-        <h2 style="color: var(--danger);">⚠️ Zerar Período Ativo</h2>
-        <p style="font-size:0.85rem; color:#64748b; margin-bottom:1rem;">Apaga os lançamentos apenas da semana/mês selecionados no topo. Exige senha de Gerente ou Dev.</p>
+        <h2 style="color: var(--danger);">⚠️ Zerar Ciclo Ativo</h2>
+        <p style="font-size:0.85rem; color:#64748b; margin-bottom:1rem;">Apaga os lançamentos apenas do ciclo selecionado no topo. Exige senha de Gerente ou Dev.</p>
         <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
           <input type="password" id="senha-zerar" placeholder="Digite sua senha" style="max-width: 250px;">
-          <button class="btn btn-danger" onclick="zerarPeriodoAtivo()">🗑️ Zerar Semana Selecionada</button>
+          <button class="btn btn-danger" onclick="zerarPeriodoAtivo()">🗑️ Zerar Ciclo Selecionado</button>
         </div>
       </div>
 
-      <!-- GESTÃO DE USUÁRIOS E SENHAS -->
       <div class="section-card">
         <h2>👤 Usuários Cadastrados e Senhas</h2>
         <form id="form-novo-usuario" class="form-grid" style="margin-bottom: 1.5rem;">
@@ -405,7 +401,6 @@
         </div>
       </div>
 
-      <!-- CATEGORIAS -->
       <div class="section-card">
         <h2>🏷️ Categorias de Gastos</h2>
         <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
@@ -415,7 +410,6 @@
         <div class="item-tag-list" id="lista-categorias"></div>
       </div>
 
-      <!-- OPERADORES -->
       <div class="section-card">
         <h2>🏪 Operadores de Caixa</h2>
         <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
@@ -425,7 +419,6 @@
         <div class="item-tag-list" id="lista-operadores-caixa"></div>
       </div>
 
-      <!-- LOGS -->
       <div class="section-card">
         <h2>📜 Logs de Atividades do Sistema</h2>
         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
@@ -436,7 +429,6 @@
         </div>
       </div>
 
-      <!-- BACKUP -->
       <div class="section-card area-dev-only" style="display:none; border-color: #fca5a5;">
         <h2 style="color: var(--danger);">⚠️ Zona de Acesso Total (Desenvolvedor)</h2>
         <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
@@ -466,7 +458,7 @@
       operadoresCaixa: ["Caixa 1 - Manhã", "Caixa 2 - Tarde/Noite"],
       categorias: ["Freelance - Garçom", "Freelance - Cozinha", "Compras de Urgência", "Manutenção", "Outros"],
       formasPagto: ["PIX", "Dinheiro em Espécie", "Cartão de Débito", "Transferência"],
-      periodos: {}, // Estrutura: { "2026-09_Semana 3": { aportes: [], lancamentos: [] } }
+      periodos: {},
       logs: []
     };
 
@@ -615,7 +607,7 @@
     }
 
     function criarNovaSemanaPrompt() {
-      const novaSem = prompt("Digite o nome da nova semana (ex: Semana 4, Semana Fechamento):");
+      const novaSem = prompt("Digite o nome ou data do fechamento (Ex: Fechamento Quinta 24-09):");
       if (novaSem) {
         const selSemana = document.getElementById('sel-semana');
         let opt = document.createElement('option');
@@ -634,12 +626,12 @@
       if (!userValido) return alert('Senha incorreta ou sem permissão!');
       const comp = getCompetenciaAtual();
 
-      if (confirm(`Deseja apagar os dados do período [${comp}]?`)) {
+      if (confirm(`Deseja apagar os dados do ciclo [${comp}]?`)) {
         appData.periodos[comp] = { aportes: [], lancamentos: [] };
-        registrarLog('CFG', `Zerou o período ${comp} por ${userValido.nome}`);
+        registrarLog('CFG', `Zerou o ciclo ${comp} por ${userValido.nome}`);
         await salvarDados();
         document.getElementById('senha-zerar').value = '';
-        alert('Período limpo com sucesso!');
+        alert('Ciclo limpo com sucesso!');
       }
     }
 
@@ -684,7 +676,6 @@
       e.preventDefault();
       const usarCaixa = document.getElementById('chk-usar-caixa').checked;
       
-      // Verifica qual opção de foto foi utilizada (câmera ou galeria)
       const fileCamera = document.getElementById('comprovante-camera').files[0];
       const fileGaleria = document.getElementById('comprovante-galeria').files[0];
       const fileComprovante = fileCamera || fileGaleria;
@@ -747,7 +738,7 @@
           <td style="font-weight: bold;">R$ ${a.valor.toFixed(2)}</td>
           <td><button onclick="removerAporte(${i})" style="color:var(--danger); background:none; border:none; cursor:pointer;">Excluir</button></td>
         </tr>
-      `).join('') || `<tr><td colspan="5" style="text-align:center; color:#94a3b8;">Nenhuma entrada neste período.</td></tr>`;
+      `).join('') || `<tr><td colspan="5" style="text-align:center; color:#94a3b8;">Nenhuma entrada neste ciclo.</td></tr>`;
     }
 
     function renderizarTabela() {
@@ -762,7 +753,7 @@
           <td>R$ ${item.valor.toFixed(2)}</td>
           <td><button onclick="remover(${i})" style="color:var(--danger); background:none; border:none; cursor:pointer;">Excluir</button></td>
         </tr>
-      `).join('') || `<tr><td colspan="8" style="text-align:center; color:#94a3b8;">Nenhum lançamento neste período.</td></tr>`;
+      `).join('') || `<tr><td colspan="8" style="text-align:center; color:#94a3b8;">Nenhum lançamento neste ciclo.</td></tr>`;
     }
 
     function renderizarGaleria() {
@@ -777,13 +768,13 @@
             <br><a href="${item.comprovante}" download="comprovante_${idx}.jpg" class="btn btn-primary" style="font-size:0.75rem; padding:0.2rem 0.5rem; margin-top:0.3rem;">📥 Baixar Foto</a>
           </div>
         </div>
-      `).join('') || `<p style="color:#94a3b8; grid-column: 1/-1; text-align:center;">Nenhum comprovante neste período.</p>`;
+      `).join('') || `<p style="color:#94a3b8; grid-column: 1/-1; text-align:center;">Nenhum comprovante neste ciclo.</p>`;
     }
 
     function baixarTodasImagens() {
       const dados = getDadosCompetencia();
       const comFoto = (dados.lancamentos || []).filter(item => item.comprovante);
-      if (comFoto.length === 0) return alert('Nenhuma foto neste período.');
+      if (comFoto.length === 0) return alert('Nenhuma foto neste ciclo.');
       comFoto.forEach((item, idx) => {
         const a = document.createElement('a');
         a.href = item.comprovante;
@@ -808,7 +799,7 @@
 
     function exportarCSV() {
       const dados = getDadosCompetencia();
-      if (!dados.lancamentos || dados.lancamentos.length === 0) return alert('Sem dados para exportar neste período.');
+      if (!dados.lancamentos || dados.lancamentos.length === 0) return alert('Sem dados para exportar neste ciclo.');
       let csv = '\uFEFFData e Hora;Categoria;Fonte;Descricao;Forma Pagamento;Valor\n';
       dados.lancamentos.forEach(r => {
         csv += `${r.dataHora};"${r.categoria}";"${r.fonteRecurso}";"${r.descricao}";"${r.formaPagto}";${r.valor.toFixed(2).replace('.', ',')}\n`;
