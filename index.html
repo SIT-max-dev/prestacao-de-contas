@@ -128,7 +128,7 @@
 
     @media print {
       body { background: white; color: black; }
-      header, nav, .login-overlay, .btn, form, #tab-config, #tab-galeria, #tab-historico, .competencia-bar, .col-acoes, .col-comprovante { display: none !important; }
+      header, nav, .login-overlay, .btn, form, #tab-config, #tab-galeria, #tab-historico, .competencia-bar, .col-acoes, .col-comprovante, .filtros-container { display: none !important; }
       .container { max-width: 100%; margin: 0; padding: 0; }
       .tab-content { display: block !important; }
       .section-card, .section-card-main { border: none; box-shadow: none; padding: 0; }
@@ -204,9 +204,9 @@
       </div>
     </div>
 
-    <!-- TABELA PARA IMPRESSÃO DO RELATÓRIO -->
+    <!-- TABELA PARA IMPRESSÃO DO RELATÓRIO (APENAS GASTOS/DESPESAS) -->
     <div class="print-tabela-container">
-      <h3 style="margin-bottom: 0.5rem; font-size:1rem; border-bottom:1px solid #000; padding-bottom:3px;">Lançamentos Realizados</h3>
+      <h3 style="margin-bottom: 0.5rem; font-size:1rem; border-bottom:1px solid #000; padding-bottom:3px;">Despesas Realizadas no Ciclo</h3>
       <table>
         <thead>
           <tr>
@@ -340,7 +340,25 @@
       </div>
 
       <div class="section-card">
-        <h2>Histórico de Lançamentos - Ciclo Ativo</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.75rem;">
+          <h2>Histórico de Lançamentos - Ciclo Ativo</h2>
+          
+          <!-- FILTROS DE LANÇAMENTOS -->
+          <div class="filtros-container" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <select id="filtro-categoria" onchange="renderizarTabela()" style="padding: 0.3rem; font-size: 0.8rem;">
+              <option value="">Todas Categorias</option>
+            </select>
+            <select id="filtro-pagto" onchange="renderizarTabela()" style="padding: 0.3rem; font-size: 0.8rem;">
+              <option value="">Todas Formas Pagto</option>
+            </select>
+            <select id="filtro-fonte" onchange="renderizarTabela()" style="padding: 0.3rem; font-size: 0.8rem;">
+              <option value="">Todas Fontes</option>
+              <option value="Malote">Malote</option>
+              <option value="Caixa Local">Caixa Local</option>
+            </select>
+          </div>
+        </div>
+
         <div class="table-responsive tela-tabela-container">
           <table>
             <thead>
@@ -778,12 +796,27 @@
       document.getElementById('prt-gastos').innerText = `R$ ${totalGasto.toFixed(2)}`;
       document.getElementById('prt-troco').innerText = `R$ ${Math.abs(saldo).toFixed(2)}`;
       
+      atualizarFiltrosSelects();
       renderizarTabelaAportes();
       renderizarTabela();
       renderizarTabelaImpressao(dados.lancamentos);
       renderizarGaleria();
       renderizarHistoricoSemanas();
       renderizarListasConfig();
+    }
+
+    function atualizarFiltrosSelects() {
+      const fCat = document.getElementById('filtro-categoria');
+      const fPag = document.getElementById('filtro-pagto');
+      
+      const catAtual = fCat.value;
+      const pagAtual = fPag.value;
+
+      fCat.innerHTML = '<option value="">Todas Categorias</option>' + appData.categorias.map(c => `<option value="${c}">${c}</option>`).join('');
+      fPag.innerHTML = '<option value="">Todas Formas Pagto</option>' + appData.formasPagto.map(f => `<option value="${f}">${f}</option>`).join('');
+
+      fCat.value = catAtual;
+      fPag.value = pagAtual;
     }
 
     function renderizarTabelaAportes() {
@@ -800,17 +833,31 @@
 
     function renderizarTabela() {
       const dados = getDadosCompetencia();
+      const fCat = document.getElementById('filtro-categoria').value;
+      const fPag = document.getElementById('filtro-pagto').value;
+      const fFon = document.getElementById('filtro-fonte').value;
+
+      let filtrados = (dados.lancamentos || []).filter(item => {
+        if (fCat && item.categoria !== fCat) return false;
+        if (fPag && item.formaPagto !== fPag) return false;
+        if (fFon && item.fonteRecurso !== fFon) return false;
+        return true;
+      });
+
       const tbody = document.getElementById('tabela-gastos');
-      tbody.innerHTML = (dados.lancamentos || []).map((item, i) => `
-        <tr>
-          <td>${item.dataHora}</td>
-          <td>${item.comprovante ? `<img src="${item.comprovante}" class="img-thumb" onclick="ampliar('${item.comprovante}')">` : '-'}</td>
-          <td><span class="tag">${item.categoria}</span></td><td>${item.fonteRecurso}</td>
-          <td><strong>${item.descricao}</strong></td><td>${item.formaPagto}</td>
-          <td>R$ ${item.valor.toFixed(2)}</td>
-          <td><button onclick="remover(${i})" style="color:var(--danger); background:none; border:none; cursor:pointer;">Excluir</button></td>
-        </tr>
-      `).join('') || `<tr><td colspan="8" style="text-align:center; color:#94a3b8;">Nenhum lançamento neste ciclo.</td></tr>`;
+      tbody.innerHTML = filtrados.map((item, i) => {
+        const indexReal = dados.lancamentos.indexOf(item);
+        return `
+          <tr>
+            <td>${item.dataHora}</td>
+            <td>${item.comprovante ? `<img src="${item.comprovante}" class="img-thumb" onclick="ampliar('${item.comprovante}')">` : '-'}</td>
+            <td><span class="tag">${item.categoria}</span></td><td>${item.fonteRecurso}</td>
+            <td><strong>${item.descricao}</strong></td><td>${item.formaPagto}</td>
+            <td>R$ ${item.valor.toFixed(2)}</td>
+            <td><button onclick="remover(${indexReal})" style="color:var(--danger); background:none; border:none; cursor:pointer;">Excluir</button></td>
+          </tr>
+        `;
+      }).join('') || `<tr><td colspan="8" style="text-align:center; color:#94a3b8;">Nenhum lançamento encontrado com estes filtros.</td></tr>`;
     }
 
     function renderizarTabelaImpressao(lancamentos) {
